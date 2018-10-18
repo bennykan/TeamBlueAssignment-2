@@ -19,27 +19,13 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 ```
 # Business Understanding
 
-We work at the Peter Munk Cardiac Centre, a world leader in the diagnosis, care and treatment of patients with both simple and complex cardiac and vascular disease. Each year we incur heavy costs in diagnosing cardiovascular disease because the diagnosis process is at times lengthy and complex involving high tech equipment, intrusive procedures and high skill manpower.
 
-At Peter Munk, we would like to develop a new cardiovascular screening tool using machine learning algorithm based on the cardiovascular related historical data. The screening tool will help the doctors to detect the development of heart diesease so that we can administer correct treatment at the earliest. The new screening process will reduce patients wait time and allow administering the correct treatment. It will also reduce operational costs where the savings could be re-allocated to where it needs.
-
-In summary, the goal for developing this machine learning model is to:
-
-* predict heart diesease diagnosis with high level of accuracy based on the patients' body measurements and attributes.
-* Identify the top 3 measurements or attributes which could serve as important indicators for the heart disease diagnosis so that funding can be devoted to improve the facilities and apparatus that produce these measurements.
 
 # Data Understanding
 
 ## Data Source and Collection
 
-The data are collected from the UCI Machine Learning Repository site (https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/heart-disease.names). The datasets are originated from the four heart disease diagnosis databases from the following four locations dated July 1988:
 
-* Hungarian Institute of Cardiology. Budapest: Andras Janosi, M.D.        
-* University Hospital, Zurich, Switzerland: William Steinbrunn, M.D.        
-* University Hospital, Basel, Switzerland: Matthias Pfisterer, M.D.        
-* V.A. Medical Center, Long Beach and Cleveland Clinic Foundation: Robert Detrano, M.D., Ph.D.
-
-The four datasets originally consist of 76 attributes. However, all of the experiments referred to a subset of 14 attributes in which the UCI site also provided with another version of the datasets with these 14 attributes. We took the liberty to use the 14-attribute datasets instead for our prediction exercise.
 
 ## Data Description
 
