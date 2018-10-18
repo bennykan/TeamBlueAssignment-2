@@ -1,7 +1,7 @@
 ---
-title: "Classification Algorithm for Supervised Learning - Heart Disease Diagnosis"
+title: "Clustering Algorithm for Unupervised Learning - Credit Card Client Anomaly Analysis"
 author: "Tyler Blakeley, Benjamin Kan, Mohammad Islam, Avijeet Singh"
-date: "October 12 2018"
+date: "October 29 2018"
 output:
   html_document:
     fig_height: 4.5
