@@ -18,33 +18,43 @@ output:
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 ```
 # Business Understanding
-
-
+We work at the Retail Credit Risk Analytics department at the Bank of Taiwan. Recently, there have been increasing credit card debt defaults in our bank. Senior Management would like our department to develop a machine learning algorithm to detect early warning signs from the clients who may soon default on their debts. This will allow the Retail Credit Risk and Collections departments to act early by reducing their credit card limits to minimize the losses. We would also like to find out which demographics are more susceptible to defaults. The Management instructed us to use data from the third parties to build the algorithms as proof-of-concepts before we use our own data. They would also like us to build a user-friendly app to allow them to load in the dataset and identify clients that maybe at risk of defaulting on their credit card debts.        
 
 # Data Understanding
 
 ## Data Source and Collection
-
-
+We sourced the third party credit card data from Kaggle (https://www.kaggle.com/uciml/default-of-credit-card-clients-dataset). This dataset contains information on default payments, demographic factors, credit data, history of payment, and bill statements of credit card clients in Taiwan from April 2005 to September 2005. As mentioned above, the goal is to identify a group of customers who have high default risks. 
 
 ## Data Description
+In the dataset, there are 25 variables:
 
-Variable Name | Description
---------------|-------------------------------------------------------------------------------------------
-AGE           | Age in years
-SEX           | Sex: (1 = male; 0 = female)
-CP            | Chest Pain Type: (1:typical angina; 2:atypical angina; 3:non-anginal pain; 4:asymptomatic)
-TRESTBPS      | Resting Blood Pressure (in mm Hg on admission to the hospital)
-CHOL          | Serum Cholestoral in mg/dl
-FBS           | Fasting Blood Sugar > 120 mg/dl)  (1 = true; 0 = false)
-RESTECG       | Resting Electrocardiographic Results (0:normal; 1:having ST-T wave abnormality; 2:showing                   | probable or definite left ventricular hypertrophy) 
-THALACH       | Maximum Heart Rate Achieved
-EXANG         | Exercise Induced Angina (1 = yes; 0 = no)
-OLDPEAK       | ST Depression Induced by Exercise Relative to Rest 
-SLOPE         | The Slope of the Peak Exercise ST Segment (1:upsloping; 2:flat; 3:downsloping) 
-CA            | Number of Major Vessels (0-3) Colored by Flourosopy
-THAL          | 3 = normal; 6 = fixed defect; 7 = reversable defect
-TARGET        | Diagnosis of Heart Disease (0: < 50% diameter narrowing; 1: > 50% diameter narrowing)
+Variable Name              | Description
+---------------------------|--------------------------------------------------------------------------------
+ID                         | ID of each client
+LIMIT_BAL                  | Amount of given credit in NT dollars (includes individual and                                              | family/supplementary credit
+SEX                        | Gender (1=male, 2=female)
+EDUCATION                  | (1=graduate school, 2=university, 3=high school, 4=others, 5=unknown, 6=unknown)
+MARRIAGE                   | Marital status (1=married, 2=single, 3=others)
+AGE                        | Age in years
+PAY_0                      | Repayment status in September, 2005 (-1=pay duly, 1=payment delay for one month,                            | 2=payment delay for two months, ... 8=payment delay for eight months, 9=payment                            | delay fornine months and above)                 
+PAY_2                      | Repayment status in August, 2005 (scale same as above)
+PAY_3                      | Repayment status in July, 2005 (scale same as above)
+PAY_4                      | Repayment status in June, 2005 (scale same as above)
+PAY_5                      | Repayment status in May, 2005 (scale same as above)
+PAY_6                      | Repayment status in April, 2005 (scale same as above)
+BILL_AMT1                  | Amount of bill statement in September, 2005 (NT dollar)
+BILL_AMT2                  | Amount of bill statement in August, 2005 (NT dollar)
+BILL_AMT3                  | Amount of bill statement in July, 2005 (NT dollar)
+BILL_AMT4                  | Amount of bill statement in June, 2005 (NT dollar)
+BILL_AMT5                  | Amount of bill statement in May, 2005 (NT dollar)
+BILL_AMT6                  | Amount of bill statement in April, 2005 (NT dollar)
+PAY_AMT1                   | Amount of previous payment in September, 2005 (NT dollar)
+PAY_AMT2                   | Amount of previous payment in August, 2005 (NT dollar)
+PAY_AMT3                   | Amount of previous payment in July, 2005 (NT dollar)
+PAY_AMT4                   | Amount of previous payment in June, 2005 (NT dollar)
+PAY_AMT5                   | Amount of previous payment in May, 2005 (NT dollar)
+PAY_AMT6                   | Amount of previous payment in April, 2005 (NT dollar)
+default.payment.next.month | Default payment (1=yes, 0=no)
 
 ## Data Exploration
 
