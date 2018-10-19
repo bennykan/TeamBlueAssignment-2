@@ -31,12 +31,12 @@ In the dataset, there are 25 variables:
 Variable Name              | Description
 ---------------------------|--------------------------------------------------------------------------------
 ID                         | ID of each client
-LIMIT_BAL                  | Amount of given credit in NT dollars (includes individual and                                              | family/supplementary credit
+LIMIT_BAL                  | Amount of given credit in NT dollars (includes individual and                                               | family/supplementary credit
 SEX                        | Gender (1=male, 2=female)
 EDUCATION                  | (1=graduate school, 2=university, 3=high school, 4=others, 5=unknown, 6=unknown)
 MARRIAGE                   | Marital status (1=married, 2=single, 3=others)
 AGE                        | Age in years
-PAY_0                      | Repayment status in September, 2005 (-1=pay duly, 1=payment delay for one month,                            | 2=payment delay for two months, ... 8=payment delay for eight months, 9=payment                            | delay fornine months and above)                 
+PAY_0                      | Repayment status in September, 2005 (-1=pay duly, 1=payment delay for one month,                            | 2=payment delay for two months, ... 8=payment delay for eight months, 9=payment                             | delay fornine months and above)                 
 PAY_2                      | Repayment status in August, 2005 (scale same as above)
 PAY_3                      | Repayment status in July, 2005 (scale same as above)
 PAY_4                      | Repayment status in June, 2005 (scale same as above)
@@ -76,24 +76,13 @@ library(ggthemes)
 library(DMwR)
 library(gridExtra)
 library(rattle)
-library(randomForest)
-library(e1071)
+library(readxl)
 ```
 ### Load Datasets
-Now that the packages are loaded,we can load in the four datasets.
+Now that the packages are loaded,we can load in the dataset.
 
 ```{r, message=FALSE}
-
-data_cleveland <- read.csv("processed.cleveland.data.csv",header = TRUE, na.strings = c("NA","","#NA","?"))
-data_hungarian <- read.csv("processed.hungarian.data.csv", header = TRUE, na.strings = c("NA","","#NA","?"))
-data_switzerland <- read.csv("processed.switzerland.data.csv", header = TRUE, na.strings = c("NA","","#NA","?"))
-data_VA <- read.csv("processed.va.data.csv", header = TRUE, na.strings = c("NA","","#NA","?"))
-```
-
-The next step will be to merge all the datasets into one.
-
-```{r, message=FALSE}
-full_data <- rbind(data_cleveland,data_hungarian,data_switzerland,data_VA)
+data = read_excel("default of credit card clients.xls", na = "NA")
 ```
 
 Now lets look at the structure of the data.
