@@ -88,7 +88,7 @@ data = read_excel("default of credit card clients.xls", na = "NA")
 Now lets look at the structure of the data.
 
 ```{r, message=FALSE}
-str(full_data)
+str(data)
 ```
 
 We've got a sense of our variables, their class type, and the first few observations of each. We know we're working with 920 observations of 14 variables.
