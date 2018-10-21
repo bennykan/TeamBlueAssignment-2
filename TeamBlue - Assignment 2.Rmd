@@ -77,12 +77,13 @@ library(DMwR)
 library(gridExtra)
 library(rattle)
 library(readxl)
+library(cluster)
 ```
 ### Load Datasets
 Now that the packages are loaded,we can load in the dataset.
 
 ```{r, message=FALSE}
-data = read_excel("default of credit card clients.xls", na = "NA")
+data <- read.csv("default of credit card clients.csv", header = TRUE, na= 'NA')
 ```
 
 Now lets look at the structure of the data.
@@ -370,39 +371,7 @@ full_data_truncated$CHOL[full_data_truncated$CHOL == 0] <- NA
 full_data_truncated$TRESTBPS[full_data_truncated$TRESTBPS == 0] <- NA
 ```
 
-## Missing Value Imputations
 
-We decided to implement a K-neareast neighbour (KNN) algorithm to impute missing values. We chose this method because it works well with both categorical and continous variables. KNN works by imputing the value based on the majority votes of K nearest neighbours.  To find the nearest neighbours we use a distance function (Euclidean Distance) for continous variables. For our continuous variables we need to ensure that they are distributed on the same ranges. We do this by telling the algorithm to re-scale all our variables to the same scale. For categorical variables, we use Hamming distance.  We chose K to be an odd number as this will avoid ties in the voting process.
-
-After implementing KNN we check to see if the correalation between all the variables has shifted at all.  The correlation should not change after imputation and the graph corrgrams show this.
-
-
-```{r, message=FALSE,warning=FALSE,fig.show='hold',fig.width=3, fig.height=3}
-#Impute missing values using KNN algorithm,remove TARGET variable from KNN
-knn_input=as.data.frame(full_data_truncated[, !names(full_data_truncated) %in% c("TARGET")])
-#Confrim structure hasnot changed except for lost of target variable
-str(knn_input)
-
-#Allow for reproducable results
-set.seed(847593)
-
-#Run KNN imputation, use built in scacle = T to rescale all data.  
-knnOutput = knnImputation(knn_input, k=7,scale=T)
-
-#Check if all missing values have been imputeted
-summary(knnOutput)
-
-aggr_plot = aggr(knnOutput, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE, labels=names(full_data), cex.axis=.7, gap=3, ylab=c("Missing data after KNN","Pattern"))
-
-#add target back to imputated data
-knnOutput$TARGET <- full_data$TARGET
-#Compare before and after correlation
-corr1 <- corrgram(full_data_truncated, order=NULL, panel=panel.shade, text.panel=panel.txt,
-main="Correlogram Before Imputation")
-corr2 <- corrgram(knnOutput, order=NULL, panel=panel.shade, text.panel=panel.txt,
-main="Correlogram After Imputation")
-
-```
 
 
 We can see that all the missing data has now been imputed and the correlations between the variables have not been shifted due to the imputed data.
@@ -411,117 +380,196 @@ We can see that all the missing data has now been imputed and the correlations b
 
 ## Select Modelling Technique
 
-We now have the data ready to predict our target variable (Diagnosis of Heart Disease 0: < 50% diameter narrowing; 1: > 50% diameter narrowing).  We chose to start with a Decision Tree classification model as they are very intuitive and easy to interpret.  A decision tree works by creating a tree like graph based on differenct variable splits.  These splits are made by evaluating the entropy and Information Gain of each variable split of the data. We evaluate all splits to find the best one that reduces the entropy (messiness) and returns the highest infomration gained. This is recursively run until all data is classified or a stopping criteria is met.
+We chose to start with a k means clustering alorgirthm as most of our data was numeric and we were able to easily encode the categorical variables to make them numeric.  
 
-## Split into Training & Test Sets
+## Encode Data
 
 ```{r, message=FALSE,warning=FALSE}
-#set.seed(456292)
+set.seed(456292)
 
-#Create index to split data
-train_set <- createDataPartition(knnOutput$TARGET, p = 0.8, list = FALSE)
-str(train_set)
+#assume AVI will remove this but keeping it for you guys to test
+#remove default column, create unlabelled dataset and ID Column
+data <- data[,!colnames(data) %in% c("default.payment.next.month")]
 
-#Check distribution of target variable in train set and test set
-prop.table(table(knnOutput$TARGET[train_set]))
-prop.table(table(knnOutput$TARGET[-train_set]))
-prop.table(table(knnOutput$TARGET))
 
-#Create train and test data
-train_data <- knnOutput[train_set,]
-test_data <- knnOutput[-train_set,]
+#factor categorical variables
+factor_VARS <- c('SEX','EDUCATION','MARRIAGE','PAY_0','PAY_2','PAY_3','PAY_4','PAY_5','PAY_6')
+
+data[factor_VARS]<- lapply(data[factor_VARS],function(x) as.factor(x))
+
+
+#encod categorical columns
+dummies_model <- dummyVars(ï..ID ~ ., data=data)
+
+# Create the dummy variables using predict. The Y variable (ï..ID) will not be present in encod
+encod <- predict(dummies_model, newdata = data)
+
+# # Convert to dataframe
+data_encoded <- data.frame(encod)
+
+# # See the structure of the new dataset
+str(data_encoded)
+
 
 ```
 
-We split the data into 80% training data and 20% testing data, the data is balanced on the Target variable to ensure it is representative of the initial data set.
 
-## Build Model 
+## Find Optimal number of Clusters (K)
+
+To find the optimal number of clusters we used the Elbow method. The elbow method finds the optinal K value by considering the percentage of variance explained by each cluster.
+
 ```{r, message=FALSE,warning=FALSE}
-#Find Optimal Parameters for Decision Tree Model and reduce bias using cross validation
-folds=10
+#Find Optimal K using Elbow method
 
-fitControl <- trainControl(method="cv",number=folds)
+df <- sample_n(data_encoded,10000)
 
-#Implement Decision Tree model 
-DT_model <- train(factor(TARGET)~., data=train_data, method="rpart",tuneLength = 50, 
-metric = "Accuracy",
-trControl = fitControl)
+wssplot <- function(data, nc=15, seed=1234){
+  wss <- (nrow(data)-1)*sum(apply(data,2,var))
+  for (i in 2:nc){
+    set.seed(seed)
+    wss[i] <- sum(kmeans(data, centers=i)$withinss)}
+  plot(1:nc, wss, type="b", xlab="Number of Clusters",
+       ylab="Within groups sum of squares")}
+
+wssplot(df, nc=10) 
+
+
 
 ```
 
-We implemented K fold cross validation with 10 folds to find our optimal parameters for the desicion tree model.  The optimal parameters for our data was with a complexity parameter of `r DT_model$finalModel$tuneValue`.  By using K fold cross validation we are able to reduce overfitting and selection bias of the model to our training data.  The cross validation splits the data in 10 folds and creates a model using 9 folds as the training set, and the other fold as the test set.  It repeats this process for each different fold and the validation results are combined(average) from all models to create the final model.
+Based on the Elbow method, we found the optinal number to be 6
 
-## Assess Model
 
-### Accuracy
-
+## Build K Means Model 
 ```{r, message=FALSE,warning=FALSE}
-print(DT_model)
-# Predict Test results
-DT_model.pred <- predict(DT_model, test_data)
-# Check Accuracy of Model 
-confus <- confusionMatrix(DT_model.pred,factor(test_data$TARGET))
 
-confus
-# Plot Decision Tree
-fancyRpartPlot(DT_model$finalModel)
+kmeans.result <- kmeans(df, centers=6)
 
 ```
 
-The Decision tree model we created had a `r round(confus$overall[1]*100,2)` % accuracy.  We were significanly better at predicting if the TARGET value 1: > 50% diameter narrowing, we were correct `r round(confus$byClass[2]*100,2)` % of the time.  One downside to having a high % of predictor TARGET 1, is that also classified a lot of false negatives.  Of test data that was 0: < 50% diameter narrowing, `r 100-round(confus$byClass[[1]]*100,2)` was incorrectly classified as 1: > 50% diameter narrowing.
+Explain K Means Models ......
 
-### Variable importance
 
-Let's look at relative variable importance of each variable
+## Assess Clusters
+
+```{r, message=FALSE,warning=FALSE}
+
+
+#Describe Clusters
+
+#ClusterSize
+kmeans.result$size
+
+#Cluster Center Attributes 
+kmeans.result$centers
+
+
+#Vizualize Clusters
+par(mfrow=c(3,2))
+pie(colSums(df[kmeans.result$cluster==1,]),cex=0.5)
+
+pie(colSums(df[kmeans.result$cluster==2,]),cex=0.5)
+
+pie(colSums(df[kmeans.result$cluster==3,]),cex=0.5)
+pie(colSums(df[kmeans.result$cluster==4,]),cex=0.5)
+pie(colSums(df[kmeans.result$cluster==5,]),cex=0.5)
+pie(colSums(df[kmeans.result$cluster==6,]),cex=0.5)
+
+```
+
+
+### Visualize Model with PCA
+
+We will use Principle Componet Analysis (PCA) to help us Visualize our clusters.  PCA works by reducing dimensoinality of the data. We want to reduce the dimensionality to 2d because it will allow us to graph the clusters. PCA 
+creates new columns that are linearly uncorrelated variables, and sorts thems in descending where PC1 will account for the highest variability of the data, and PC2 will be seocnd most and so on.
+
+```{r, message=FALSE,warning=FALSE}
+df_pca <- prcomp(df)
+df_out <- as.data.frame(df_pca$x)
+
+p<-ggplot(df_out,aes(x=PC1,y=PC2,color = as.factor(kmeans.result$cluster ) ))
+theme<-theme(panel.background = element_blank(),panel.border=element_rect(fill=NA),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),strip.background=element_blank(),axis.text.x=element_text(colour="black"),axis.text.y=element_text(colour="black"),axis.ticks=element_line(colour="black"),plot.margin=unit(c(1,1,1,1),"line"))
+percentage <- round(df_pca$sdev / sum(df_pca$sdev) * 100, 2)
+percentage <- paste( colnames(df_out), "(", paste( as.character(percentage), "%", ")", sep="") )
+
+p<-p+geom_point()+theme+xlab(percentage[1]) + ylab(percentage[2])
+
+p
+
+```
+
+Looking at the vizualized data we can see the clusters are well formed and there is minimal overlap, the dclusters are almost fully homogeneous.
+
+
+##Find Anomalies (Outliers)
+
+
+
+###Anomaly Detection using K Means
 
 ```{r, message=FALSE, warning=FALSE}
-# Get importance
-importance    <- varImp(DT_model)
 
-ggplot(importance)
+#Find the Center of each cluster
+centers <- kmeans.result$centers[kmeans.result$cluster, ]  
+
+# Calculate distance each point is from the center of the cluster
+distances <- sqrt(rowSums((df - centers)^2))
+# Take the top 20 fartherest points from the cluster center
+outliers <- order(distances, decreasing=T)[1:20]
+
+#Plot Outliers
+p<-p + geom_point(data=df_out[outliers,],aes(x=PC1,y=PC2), colour="red", size=4)+ggtitle("PCA 6 Means Cluster with Outliers")
+
+p
+
+
+
+```
+
+
+
+###Anomaly Detection using Local Outlier Factor
+
+
+Another way to find outlier in unsupervised learning is by using the Local outlier
+Facotr alogorithm.  This alogrithm is similar to the previous one we used but differs
+by comparing local density,where locality is based on the k nearest neighbours.  The LOF
+allows us to identify outliers in a data set tha would not be outliers in another area of the data set.
+
+
+```{r, message=FALSE,warning=FALSE}
+
+#run LOF Model takes awhile 5 to 10 minutes
+outlier.scores <- lofactor(df,k=30)
+
+#Plotdensity of Outliers
+plot(density(outlier.scores))
+
+
+#Plot outliers from LOF
+outliers_lof <- order(outlier.scores, decreasing=T)[1:20]
+
+
+p_lof<-ggplot(df_out,aes(x=PC1,y=PC2,color = as.factor(kmeans.result$cluster ) ))+geom_point()+theme+xlab(percentage[1]) + ylab(percentage[2]) + geom_point(data=df_out[outliers_lof,],aes(x=PC1,y=PC2), colour="red", size=3)+ggtitle("PCA LOF Outliers")
+
+
+#compare K means outlier to LOF
+grid.arrange(p, p_lof, nrow = 2,ncol = 1)
+
 
 
 ```
 
-The most importance variable for prediction our Target are THALACH (Maximum Heart Rate Achieved), EXANG with value 1(Exercise Induced Angina), OLDPEAK (ST Depression Induced by Exercise Relative to Rest), CP with value 4(Chest Pain Type 4:Asymptomatic), and CP with value 2 (Chest Pain Type 2:atypical angina).
-
-## Additional Model
-
-Even though we used cross validation in our analysis, our decision tree model could still suffer from overfitting. One way to reduce overfitting more is to use an ensemble of decision trees called a Random Forest Model.  The Random Forest model adds more randomness to the model by creating many different decision trees and instead of choosing the best variable to split on from all variables, we only look at a subset of all variables for each split.  Once all the trees are created, the final classifier is chosen from the mode of all the trees( Ex: if 10 trees output 1 and 5 tree output 0, then the final model would output 1). The downside to Random Forest to Decision Trees is it is more computational intensive, but our dataset is small enough that it doesn't affect it much.
-
-### Tuning Random Forest
-
-```{r, message=FALSE,warning=FALSE}
 
 
-##Find Optimal number of random variables to select at each split
-
-bestmtry <- tuneRF(train_data[,1:10], train_data$TARGET, stepFactor=1.5, improve=1e-5, ntree=500,doBest = TRUE)
-tunegrid <- expand.grid(.mtry=bestmtry$mtry)
-
-#Create random forest model using optional parameters and cross validation
-RF_model <- train(factor(TARGET)~., data=train_data, method="rf",tuneGrid=tunegrid,tuneLength = 50,
-metric = "Accuracy",
-trControl = fitControl)
-
-print(RF_model)
 
 
-```
-Using the function we were able to find the optimal number of random variables to select at each split.  The optimal number was `r bestmtry$mtry`
 
-### Accuracy
+
+### Look at individual outliers
 
 ```{r, message=FALSE,warning=FALSE}
-print(RF_model)
-# Predict Test results
-RF_model.pred <- predict(RF_model, test_data)
-# Check Accuracy of Model 
-RF_confus <- confusionMatrix(RF_model.pred,factor(test_data$TARGET))
 
-RF_confus
-# Plot Random Forest error
-plot(RF_model$finalModel)
 
 ```
 
