@@ -56,6 +56,23 @@ PAY_AMT5                   | Amount of previous payment in May, 2005 (NT dollar)
 PAY_AMT6                   | Amount of previous payment in April, 2005 (NT dollar)
 default.payment.next.month | Default payment (1=yes, 0=no)
 
+
+## Data Preparation
+
+
+```{r, message=FALSE,warning=FALSE}
+
+#remove default column, create unlabelled dataset and ID Column
+data <- data[,!colnames(data) %in% c("default.payment.next.month")]
+
+
+#factor categorical variables
+factor_VARS <- c('SEX','EDUCATION','MARRIAGE','PAY_0','PAY_2','PAY_3','PAY_4','PAY_5','PAY_6')
+
+data[factor_VARS]<- lapply(data[factor_VARS],function(x) as.factor(x))
+
+```
+
 ## Data Exploration
 
 ### Load Packages
@@ -92,289 +109,206 @@ Now lets look at the structure of the data.
 str(data)
 ```
 
-We've got a sense of our variables, their class type, and the first few observations of each. We know we're working with 920 observations of 14 variables.
-
-### Feature Engineering
-
-Upon initial inspection of the data, we found that the data convention for the TARGET attribute is inconsistent among the 4 datasets. Both Switzerland and VA datasets have the heart disease dignosis target variable with the values of 0, 1, 2, 3 and 4 instead of the values of 0 or 1. Here we will make the data format consistent with the data definition described above (i.e 0: < 50% diameter narrowing; 1: > 50% diameter narrowing). So we made the following adjustments on the TARGET attribute:
-
-```{r, message=FALSE}
-# original target variable distributions
-table(full_data$TARGET)
-full_data$TARGET <- ifelse(full_data$TARGET>=1,1,full_data$TARGET)
-# final target variable distributions
-table(full_data$TARGET)
-```
-
-Also we reckon that converting the variable SEX into M & F would be easier to understand instead of "1" and "0" respectively, so we replace them.
-
-```{r, message=FALSE,warning=FALSE}
-full_data$SEX<-ifelse(full_data$SEX==1,"M","F")
-```
-
-Lastly,we can see that the attributes('SEX','CP','FBS','RESTECG','EXANG','SLOPE','CA','THAL','TARGET') are all categorical variables so we convert them into factors
-
-```{r, message=FALSE,warning=FALSE}
-factor_VARS <- c('SEX','CP','FBS','RESTECG','EXANG','SLOPE','CA','THAL','TARGET')
-full_data[factor_VARS]<- lapply(full_data[factor_VARS],function(x) as.factor(x))
-```
-
-Before we dig into data exploration, let us see what our data looks like now after all the changes.
-
-```{r, message=FALSE,warning=FALSE}
-str(full_data)
-```
 
 ###Data Analysis
 Now we explore the data. We can divide it into two categories:
-* Categorical Features
+  * Univariate Exploration
+* Bivariate Exploration
+
+####Univariate exploration
+We can further divide this into two categories for data exploration:
+  * Categorical Features
 * Numerical Features
 
-####Categorical Features
+#####Categorical Features
 Let us visualize the categorical data.
 
-#####SEX
+######SEX,EDUCATION,MARRIAGE
 ```{r, message=FALSE,warning=FALSE}
-attach(full_data)
-freq_tbl_sex=table(SEX)
-head(freq_tbl_sex)
-barplot(freq_tbl_sex,xlab = "SEX", ylab = "Number of Patients",main = "Bar chart of Gender of Patients ",col=c("pink","navyblue"))
+p1 = ggplot(data,aes(data$SEX))+geom_bar(fill="steelblue")+scale_x_discrete("Sex")+scale_y_continuous("No. of Observations")
+p2 = ggplot(data,aes(data$EDUCATION))+geom_bar(fill="steelblue")+scale_x_discrete("Education")+scale_y_continuous("No. of Observations")
+p3 = ggplot(data,aes(data$MARRIAGE))+geom_bar(fill="steelblue")+scale_x_discrete("Marriage")+scale_y_continuous("No. of Observations")
+grid.arrange(p1,p2,p3,nrow = 1)
 ```
 
-Clearly the number of male patients in this dataset is more than the female patients.
-Let us now see the relationship between the gender and our target.
+From the above graphs we made the following observations:
+  1. The number of females are more in the dataset as compared to number of males.
+2. There are some values at "0" for the attributes Education and Marriage.
 
+######Pay Status
+According to the description, PAY_x is a set of categorical variables with the levels:
+  -1=pay duly, 1=payment delay for one month, 2=payment delay for two months,...8= payment delay for 8 months and 9=payment delay for 9 months and above.
 ```{r, message=FALSE,warning=FALSE}
-freq_xtab_sex=xtabs(~SEX+TARGET)
-barplot(freq_xtab_sex, legend=rownames(freq_xtab_sex), ylab="Number of People", xlab="Target", col=c("pink","navyblue"), beside=T, las=1)
+p4 = ggplot(data,aes(data$PAY_0))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_0")+scale_y_continuous("No. of Observations")
+p5 = ggplot(data,aes(data$PAY_2))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_2")+scale_y_continuous("No. of Observations")
+p6 = ggplot(data,aes(data$PAY_3))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_3")+scale_y_continuous("No. of Observations")
+p7 = ggplot(data,aes(data$PAY_4))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_4")+scale_y_continuous("No. of Observations")
+p8 = ggplot(data,aes(data$PAY_5))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_5")+scale_y_continuous("No. of Observations")
+p9 = ggplot(data,aes(data$PAY_6))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_6")+scale_y_continuous("No. of Observations")
+grid.arrange(p4,p5,p6,p7,p8,p9,nrow = 2)
 ```
 
-The graph above shows that higher proportion of males was diagnosed with the heart disease.
+From the above graphs we made the following observation(s):
+  We observed undocumented values for the PAY attributes i.e "0" &"-2"
+On going through the discussions where the dataset was taken from we found that infact these values have the following meaning.
+-2 = No consumption
+0  = The use of revolving credit card.
+So from here we found out that there are high number of observations where people are using revolving credit card.
+Source:
+  https://www.kaggle.com/uciml/default-of-credit-card-clients-dataset/discussion/34608 
 
-#####CP(Chest Pain)
+#####Numerical Features
+
+######Age
 ```{r, message=FALSE,warning=FALSE}
-freq_tbl_CP=table(CP)
-barplot(freq_tbl_CP,xlab = "Chest Pain Type", ylab = "Number of Patients",main = "Bar chart of Chest Pain",col=c("green","yellow","purple","red"))
+p10 = ggplot(data, aes(data$AGE)) + geom_histogram(binwidth = 1,colour="black",fill="white")+  scale_x_continuous("Age")+scale_y_continuous("Observations Count")+labs(title = "Histogram")
+p11 = ggplot(data, aes(,data$AGE)) + geom_boxplot(fill = "white")+  scale_y_continuous("Age")+scale_x_continuous("")+labs(title="Boxplot")
+grid.arrange(p10,p11,nrow =1,top="AGE DISTRIBUTION AND OUTLIERS" )
 ```
 
-From the plot it is evident that there is more number of patients with CP Type 4 (Asymptomatic).
-
-Now lets look at CP against our Target Variable.
-
+######Limit of Balance
+Lets explore the distribution and the outliers for the limit of balance.
 ```{r, message=FALSE,warning=FALSE}
-freq_xtab_CP=xtabs(~CP+TARGET)
-barplot(freq_xtab_CP, legend=rownames(freq_xtab_CP), ylab="Patients", xlab="Target", col=c("green","yellow","purple","red"), beside=T, las=1)
+ggplot(data, aes(data$LIMIT_BAL)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Limit_BAL")+scale_y_continuous("Obs.")+labs(title = "Histogram")
 ```
 
-From the plot above, we can see that patients with CP (Chest Paint Type) 4 is more prone to have heart disease.
+So we can see from the above histogram the people usually have limit balance: 20000,30000,50000,80000,200000.
 
-#####FBS(Fasting Blood Sugar)
-We have more number of patients with low blood sugar i.e. <120mg/L as we can see from the following plot.
-
+Now lets us check for outliers with a boxplot.
 ```{r, message=FALSE,warning=FALSE}
-freq_tbl_FBS=table(FBS)
-barplot(freq_tbl_FBS,xlab = "Fasting Blood Sugar(FBS)", ylab = "Number of Patients",main = "Bar chart of FBS",col=c("purple","yellow"))
-
+ggplot(data, aes(x=factor(0),y=data$LIMIT_BAL)) + geom_boxplot(fill = "white")+
+  scale_y_continuous("Limit_Bal")+scale_x_discrete("")+labs(title="Boxplot")
 ```
 
-Now lets plot it with respect to our target variable.
+So we can see the outliers are identified as individuals with a balance limit of over 600,000.
+Let us see how many instances have values >600,000
 
 ```{r, message=FALSE,warning=FALSE}
-freq_xtab_FBS=xtabs(~FBS+TARGET)
-barplot(freq_xtab_FBS, legend=rownames(freq_xtab_FBS), ylab="Number of People", xlab="Target", col=c("purple","yellow"), beside=T, las=1)
+LIMIT_BAL_OUT <- with(data, which(LIMIT_BAL > 600000))
+NROW(LIMIT_BAL_OUT)
 ```
 
-The plot did not change much when the data was divided based on the presence of the heart disease although patients diagnosed with heart disease exhibited a slighlty higher level of blood sugar.
+As we can see it is only 79 instances and we can consider removing these.
 
-#####Rest ECG
-
-```{r, message=FALSE,warning=FALSE}
-freq_tbl_RESTECG=table(RESTECG)
-barplot(freq_tbl_RESTECG,xlab = "RESTECG", ylab = "Number of Patients",main = "Bar chart of RESTECG",col=c("green","purple","yellow"))
-```
-
-0-Normal
-1-abnormal
-2-Hypertrophy
-
-Now lets compare with our TARGET
+######Bill Amount
+Lets explore the distribution and the outliers for BILL_AMTX. The document describes these attributes as follows:
+  
+  BILL_AMT1                  | Amount of bill statement in September, 2005 (NT dollar)
+BILL_AMT2                  | Amount of bill statement in August, 2005 (NT dollar)
+BILL_AMT3                  | Amount of bill statement in July, 2005 (NT dollar)
+BILL_AMT4                  | Amount of bill statement in June, 2005 (NT dollar)
+BILL_AMT5                  | Amount of bill statement in May, 2005 (NT dollar)
+BILL_AMT6                  | Amount of bill statement in April, 2005 (NT dollar)
 
 ```{r, message=FALSE,warning=FALSE}
-freq_xtab_RESTECG=xtabs(~RESTECG+TARGET)
-barplot(freq_xtab_RESTECG, legend=rownames(freq_xtab_RESTECG), ylab="Number of People", xlab="Target", col=c("green","purple","yellow"), beside=T, las=1)
-```
-
-Most patients exhibited normal RESTECG results. However, a higher proportion of diseased patients had abnormal ST wave patterns suggesting that this feature may contribute some predictive power.
-
-#####EXANG - Exercise Induced Angina.
-
-We can see from the following plot that there is more noumber of individuals who do not have exercise induced angina.
-
-```{r, message=FALSE,warning=FALSE}
-freq_tbl_EXANG=table(EXANG)
-barplot(freq_tbl_EXANG,xlab = "EXANG", ylab = "Number of Patients",main = "Bar chart of EXANG",col=c("green","purple","yellow"))
-```
-
-Let us compare with our TARGET.
-
-```{r, message=FALSE,warning=FALSE}
-freq_xtab_EXANG=xtabs(~EXANG+TARGET)
-barplot(freq_xtab_EXANG, legend=rownames(freq_xtab_EXANG), ylab="Number of People", xlab="Target", col=c("green","purple"), beside=T, las=1)
-```
-In the number of individuals diagnosed with the heart disease most of them had exercise induced angina.
-This is a strong predictive attribute.
-
-We will stop here as the remaining factor attributes have a lot of missing values.
-
-####Numeric Features
-
-#####Age
-
-Let us plot a histogram to see the distribution of ages.
-
-```{r, message=FALSE,warning=FALSE}
-hist(full_data$AGE,main = "Distribution of Age",xlab = "Age",ylab = "Number of People")
-```
-
-Now lets see the age distribution according to our Target.
-
-```{r, message=FALSE,warning=FALSE}
-ggplot(full_data, aes(AGE, fill = TARGET)) + 
-  geom_histogram() + 
-  theme_few()
-```
-
-We can see that the individuals diagnosed with heart disease have a slightly higher age.
-
-#####TRSETBPS(Resting Blood Pressure (in mm Hg on admission to the hospital))
-
-Let us check the distribution of TRESTBPS
-
-```{r, message=FALSE,warning=FALSE}
-hist(full_data$TRESTBPS,main = "Distribution of TRESTBPS",xlab = "TRESTBPS",ylab = "Number of People")
-```
-```{r, message=FALSE,warning=FALSE}
-ggplot(full_data, aes(TRESTBPS, fill = TARGET)) + 
-  geom_histogram() + 
-  theme_few()
-```
-
-We can see higher the TRESTBPS, higher are the chances of getting diagnosed with the heart disease.
-Now let us check the outliers in TRESTBPS.
-
-```{r, message=FALSE,warning=FALSE}
-boxplot(full_data$TRESTBPS,ylab='Resting blood pressure',main='Boxplot distribution of TRESTBPS')
-```
-
-#####CHOL(Serum Cholestoral in mg/dl)
-
-Let us check the distribution of TRESTBPS VS TARGET
-
-```{r, message=FALSE,warning=FALSE}
-ggplot(full_data, aes(CHOL, fill = TARGET)) + 
-  geom_histogram() + 
-  theme_few()
-```
-
-Box plot for cholestrol.
-
-```{r, message=FALSE,warning=FALSE}
-boxplot(full_data$CHOL,ylab='Cholestrol',main='Boxplot distribution of CHOL')
-```
-
-#####THALACH(Maximum Heart Rate Achieved)
-
-```{r, message=FALSE,warning=FALSE}
-ggplot(full_data, aes(THALACH, fill = TARGET)) + 
-  geom_histogram() + 
-  theme_few()
-```
-
-This shows that the maximum heart rate was higher for the non-diseased individuals as compared to the diseased individuals.
-
-Lets check for outliers in this group.
-
-```{r, message=FALSE,warning=FALSE}
-boxplot(full_data$THALACH,ylab='Maximum heart rate',main='Boxplot distribution of THALACH')
-```
-
-#####OLDPEAK(ST Depression Induced by Exercise Relative to Rest)
-
-Let us check the distribution of OLDPEAK VS TARGET
-
-```{r, message=FALSE,warning=FALSE}
-ggplot(full_data, aes(OLDPEAK, fill = TARGET)) + 
-  geom_histogram() + 
-  theme_few()
-```
-
-We can see that higher the value for OLDPEAK there are more chances of the individual to be diagnosed with heart disease.
-
-Now lets check for outliers.
-
-```{r, message=FALSE,warning=FALSE}
-boxplot(full_data$OLDPEAK,ylab='ST Depression Induced by Exercise Relative to Rest',main='Boxplot distribution of OLDPEAK')
-```
-
-We would like to find out if there are any relationships among the numerical variables. We are using the GGPAIRS plot:
-
-```{r, message=FALSE,warning=FALSE}
-ggpairs(full_data[, !names(full_data)%in% factor_VARS])
+p12 = ggplot(data, aes(data$BILL_AMT1)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT1")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+p13 = ggplot(data, aes(data$BILL_AMT2)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT2")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+p14 = ggplot(data, aes(data$BILL_AMT3)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT3")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+p15 = ggplot(data, aes(data$BILL_AMT4)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT4")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+p16 = ggplot(data, aes(data$BILL_AMT5)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT5")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+p17 = ggplot(data, aes(data$BILL_AMT6)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT6")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+grid.arrange(p12,p13,p14,p15,p16,p17,nrow =3,top="BILL_AMTX DISTRIBUTION" )
 
 ```
 
-Interestingly, the correlations among the numerical variables are not as strong. And this shows in the scatter plots.
-
-## Data Quality Verification
-
-### Missing Data
-
-First let us summarize the data and see how it looks like.
-
+Now we have seen the distribution, lets check for outliers:
 ```{r, message=FALSE,warning=FALSE}
-summary(full_data)
-```
-
-We now visualize the missing data through a histogram.
-
-```{r, message=FALSE,warning=FALSE}
-aggr_plot = aggr(full_data, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE, labels=names(full_data), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
-```
-
-As we analyze all the variables, we found some attribute with substantial missing values.  There was a couple of variables that caught our attention where varable **CA**  with `r round(sum(is.na(full_data$CA)) / nrow(full_data)*100)` % missing data, **SLOPE** with `r round(sum(is.na(full_data$SLOPE)) / nrow(full_data)*100)` % missing data and **THAL** with `r round(sum(is.na(full_data$THAL)) / nrow(full_data)*100)` % missing data.  
-
-Other attributes have missing data as well but the issue is not as severe. We will deal with these under the Data Preparation section separately.
-
-### Outliers
-
-Based on the boxplots above, we found that there are zero values for the cholesterol level and resting blood pressure. These observations are not physically possible they don't make sense. We will treat these under the Data Preparation section. 
-
-# Data Preparation
-
-Now that we are done with data exploration we can move on to data preparation.
-
-## Attributes with High Percentage of Missing Data
-
-As mentioned above, there are three varibales which have a high percent of missing data. We chose to remove them so that they won't distort our prediction model.
-
-```{r, message=FALSE,warning=FALSE} 
-full_data_truncated<-as.data.frame(full_data[, !names(full_data) %in% c("THAL","CA","SLOPE")])
-summary(full_data_truncated)
-``` 
-
-## Zero Values for Cholesteral and Resting Blood Pressure Measurements
-
-We assume that zero cholesteral and resting blood pressure values are erroneous so we will treat them as missing:
-
-```{r, message=FALSE,warning=FALSE}
-full_data_truncated$CHOL[full_data_truncated$CHOL == 0] <- NA
-full_data_truncated$TRESTBPS[full_data_truncated$TRESTBPS == 0] <- NA
+p18 = ggplot(data, aes(,data$BILL_AMT1)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT1")+scale_x_continuous("")+labs(title="Boxplot")
+p19 = ggplot(data, aes(,data$BILL_AMT2)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT2")+scale_x_continuous("")+labs(title="Boxplot")
+p20 = ggplot(data, aes(,data$BILL_AMT3)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT3")+scale_x_continuous("")+labs(title="Boxplot")
+p21 = ggplot(data, aes(,data$BILL_AMT4)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT4")+scale_x_continuous("")+labs(title="Boxplot")
+p22 = ggplot(data, aes(,data$BILL_AMT5)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT5")+scale_x_continuous("")+labs(title="Boxplot")
+p23 = ggplot(data, aes(,data$BILL_AMT6)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT6")+scale_x_continuous("")+labs(title="Boxplot")
+grid.arrange(p18,p19,p20,p21,p22,p23,nrow =3,top="OUTLIERS for BILL_AMTX" )
 ```
 
 
+######Pay Amount
+Lets explore the distribution and the outliers for PAY_AMTX. The document describes these attributes as follows:
+  
+  PAY_AMT1                   | Amount of previous payment in September, 2005 (NT dollar)
+PAY_AMT2                   | Amount of previous payment in August, 2005 (NT dollar)
+PAY_AMT3                   | Amount of previous payment in July, 2005 (NT dollar)
+PAY_AMT4                   | Amount of previous payment in June, 2005 (NT dollar)
+PAY_AMT5                   | Amount of previous payment in May, 2005 (NT dollar)
+PAY_AMT6                   | Amount of previous payment in April, 2005 (NT dollar)
+
+```{r, message=FALSE,warning=FALSE}
+p24 = ggplot(data, aes(data$PAY_AMT1)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT1")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+p25 = ggplot(data, aes(data$PAY_AMT2)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT2")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+p26 = ggplot(data, aes(data$PAY_AMT3)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT3")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+p27 = ggplot(data, aes(data$PAY_AMT4)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT4")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+p28 = ggplot(data, aes(data$PAY_AMT5)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT5")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+p29 = ggplot(data, aes(data$PAY_AMT6)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT6")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+grid.arrange(p24,p25,p26,p27,p28,p29,nrow =3,top="PAY_AMTX DISTRIBUTION" )
+
+```
+
+Now we have seen the distribution, lets check for outliers:
+  
+```{r, message=FALSE,warning=FALSE}
+p30 = ggplot(data, aes(,data$PAY_AMT1)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAY_AMT1")+scale_x_continuous("")+labs(title="Boxplot")
+p31 = ggplot(data, aes(,data$PAY_AMT2)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAY_AMT2")+scale_x_continuous("")+labs(title="Boxplot")
+p32 = ggplot(data, aes(,data$PAY_AMT3)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAY_AMT3")+scale_x_continuous("")+labs(title="Boxplot")
+p33 = ggplot(data, aes(,data$PAY_AMT4)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAYL_AMT4")+scale_x_continuous("")+labs(title="Boxplot")
+p34 = ggplot(data, aes(,data$PAY_AMT5)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAY_AMT5")+scale_x_continuous("")+labs(title="Boxplot")
+p35 = ggplot(data, aes(,data$PAY_AMT6)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAY_AMT6")+scale_x_continuous("")+labs(title="Boxplot")
+grid.arrange(p30,p31,p32,p33,p34,p35,nrow =3,top="OUTLIERS for PAY_AMTX" )
+
+```
 
 
-We can see that all the missing data has now been imputed and the correlations between the variables have not been shifted due to the imputed data.
+####Bivariate Exploration
+
+Let us now try to plot a relation between two attributes from the data set.
+
+We will take the first two numerical attributes i.e Age and Limit_Bal and check if there is a trend.
+
+```{r, message=FALSE,warning=FALSE}
+ggplot(data, aes(AGE, LIMIT_BAL)) + geom_point() +
+  scale_x_continuous("Age", breaks = seq(0,60,20))+
+  scale_y_continuous("Limit_Bal", breaks = seq(0,1000000,by = 50000))+ theme_bw()
+
+```
+
+
+The relation b/w Age and Marriage should give us some kind of insight, lets check it out:
+  
+```{r, message=FALSE,warning=FALSE}
+ggplot(data,aes(x=AGE,fill = MARRIAGE))+geom_bar(position = "fill")
+
+```
+
+As we saw earlier as well, there are some undocumented value for marriage "0".
+Apart from that we see a clear trend in the dataset that as the age increases there are more number of married individuals.
+
+
+Let us take a look at the relation between marriage and re-payment status:
+  
+```{r, message=FALSE,warning=FALSE}
+ggplot(data,aes(x=PAY_0,fill = MARRIAGE))+geom_bar(position = "fill")
+```
+So it looks like the single people tend to delay the re-payment more than the married people do.
+
+Now lets check if there is any trend we can observe if we plot the repayment status w.r.t sex.
+We will start with PAY_0 i.e The repayment status in september just to see if we see a trend and then we can explore further.
+
+```{r, message=FALSE,warning=FALSE}
+ggplot(data,aes(x=PAY_0,fill = SEX))+geom_bar(position = "fill")
+```
+
+Looks like more number of females paid the amount duly in september and more number of males had a delay in re-payment.
+Let us check for the rest of the months to see if it is the same situation every month.
+```{r, message=FALSE,warning=FALSE}
+b1 = ggplot(data,aes(x=PAY_2,fill = SEX))+geom_bar(position = "fill")
+b2 = ggplot(data,aes(x=PAY_3,fill = SEX))+geom_bar(position = "fill")
+b3 = ggplot(data,aes(x=PAY_4,fill = SEX))+geom_bar(position = "fill")
+b4 = ggplot(data,aes(x=PAY_5,fill = SEX))+geom_bar(position = "fill")
+b5 = ggplot(data,aes(x=PAY_6,fill = SEX))+geom_bar(position = "fill")
+grid.arrange(b1,b2,b3,b4,b5,nrow = 3)
+```
+
+Just as we suspected! The males are more likely to delay the repayment as compared to the females.
 
 # Modelling
 
@@ -387,15 +321,6 @@ We chose to start with a k means clustering alorgirthm as most of our data was n
 ```{r, message=FALSE,warning=FALSE}
 set.seed(456292)
 
-#assume AVI will remove this but keeping it for you guys to test
-#remove default column, create unlabelled dataset and ID Column
-data <- data[,!colnames(data) %in% c("default.payment.next.month")]
-
-
-#factor categorical variables
-factor_VARS <- c('SEX','EDUCATION','MARRIAGE','PAY_0','PAY_2','PAY_3','PAY_4','PAY_5','PAY_6')
-
-data[factor_VARS]<- lapply(data[factor_VARS],function(x) as.factor(x))
 
 
 #encod categorical columns
