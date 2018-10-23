@@ -23,7 +23,7 @@ We work at the Retail Credit Risk Analytics department at the Bank of Taiwan. Re
 # Data Understanding
 
 ## Data Source and Collection
-We sourced the third party credit card data from Kaggle (https://www.kaggle.com/uciml/default-of-credit-card-clients-dataset). This dataset contains information on default payments, demographic factors, credit data, history of payment, and bill statements of credit card clients in Taiwan from April 2005 to September 2005. As mentioned above, the goal is to identify a group of customers who have high default risks. 
+We sourced the third party credit card data from Kaggle (https://www.kaggle.com/uciml/default-of-credit-card-clients-dataset). This dataset contains information on default payments, demographic factors, credit data, history of payment, and bill statements of credit card clients in Taiwan from April 2005 to September 2005. As mentioned above, the goal is to identify a group of customers who exhibit abnormal behaviour comparing with the rest of the data. We assume that abnormal credit behaviour would lead to high default risks.
 
 ## Data Description
 In the dataset, there are 25 variables:
@@ -36,7 +36,7 @@ SEX                        | Gender (1=male, 2=female)
 EDUCATION                  | (1=graduate school, 2=university, 3=high school, 4=others, 5=unknown, 6=unknown)
 MARRIAGE                   | Marital status (1=married, 2=single, 3=others)
 AGE                        | Age in years
-PAY_0                      | Repayment status in September, 2005 (-1=pay duly, 1=payment delay for one month,                            | 2=payment delay for two months, ... 8=payment delay for eight months, 9=payment                             | delay fornine months and above)                 
+PAY_0                      | Repayment status in September, 2005 (-1=pay duly, 1=payment delay for one month,                            | 2=payment delay for two months, ... 8=payment delay for eight months, 9=payment                             | delay for nine months and above)                 
 PAY_2                      | Repayment status in August, 2005 (scale same as above)
 PAY_3                      | Repayment status in July, 2005 (scale same as above)
 PAY_4                      | Repayment status in June, 2005 (scale same as above)
@@ -55,8 +55,6 @@ PAY_AMT4                   | Amount of previous payment in June, 2005 (NT dollar
 PAY_AMT5                   | Amount of previous payment in May, 2005 (NT dollar)
 PAY_AMT6                   | Amount of previous payment in April, 2005 (NT dollar)
 default.payment.next.month | Default payment (1=yes, 0=no)
-
-
 
 ## Data Exploration
 
@@ -82,7 +80,7 @@ library(readxl)
 library(cluster)
 ```
 ### Load Datasets
-Now that the packages are loaded,we can load in the dataset.
+Now that the packages are loaded, we can load in the dataset.
 
 ```{r, message=FALSE}
 data <- read.csv("default of credit card clients.csv", header = TRUE, na= 'NA')
@@ -93,7 +91,12 @@ Now lets look at the structure of the data.
 ```{r, message=FALSE}
 str(data)
 ```
-### Factor categorical variables
+
+##### AVI to RENAME THE FACTORS HERE #####
+
+We note that all of the variables are numeric initially. We will need to convert certain variables into factors.
+
+### Factor Categorical Variables and Create Unlabelled Dataset
 
 
 ```{r, message=FALSE,warning=FALSE}
@@ -110,16 +113,16 @@ data[factor_VARS]<- lapply(data[factor_VARS],function(x) as.factor(x))
 str(data)
 
 ```
-
+Now we have appropriate variables that are converted into factors and the last column has been removed to make the dataset unlabelled. 
 
 ###Data Analysis
 Now we explore the data. We can divide it into two categories:
-  * Univariate Exploration
+* Univariate Exploration
 * Bivariate Exploration
 
 ####Univariate exploration
 We can further divide this into two categories for data exploration:
-  * Categorical Features
+* Categorical Features
 * Numerical Features
 
 #####Categorical Features
@@ -134,32 +137,35 @@ grid.arrange(p1,p2,p3,nrow = 1)
 ```
 
 From the above graphs we made the following observations:
-  1. The number of females are more in the dataset as compared to number of males.
+1. The number of females are more in the dataset as compared to number of males.
 2. There are some values at "0" for the attributes Education and Marriage.
+3. For education level, 5 and 6 are categorized as unknown so we can look into grouping them into one level.
 
 ######Pay Status
 According to the description, PAY_x is a set of categorical variables with the levels:
   -1=pay duly, 1=payment delay for one month, 2=payment delay for two months,...8= payment delay for 8 months and 9=payment delay for 9 months and above.
 ```{r, message=FALSE,warning=FALSE}
-p4 = ggplot(data,aes(data$PAY_0))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_0")+scale_y_continuous("No. of Observations")
-p5 = ggplot(data,aes(data$PAY_2))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_2")+scale_y_continuous("No. of Observations")
-p6 = ggplot(data,aes(data$PAY_3))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_3")+scale_y_continuous("No. of Observations")
-p7 = ggplot(data,aes(data$PAY_4))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_4")+scale_y_continuous("No. of Observations")
-p8 = ggplot(data,aes(data$PAY_5))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_5")+scale_y_continuous("No. of Observations")
-p9 = ggplot(data,aes(data$PAY_6))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status for PAY_6")+scale_y_continuous("No. of Observations")
+p4 = ggplot(data,aes(data$PAY_0))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status Sept_2005")+scale_y_continuous("No. of Observations")
+p5 = ggplot(data,aes(data$PAY_2))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status Aug_2005")+scale_y_continuous("No. of Observations")
+p6 = ggplot(data,aes(data$PAY_3))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status July_2005")+scale_y_continuous("No. of Observations")
+p7 = ggplot(data,aes(data$PAY_4))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status June_2005")+scale_y_continuous("No. of Observations")
+p8 = ggplot(data,aes(data$PAY_5))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status May_2005")+scale_y_continuous("No. of Observations")
+p9 = ggplot(data,aes(data$PAY_6))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status April_2005")+scale_y_continuous("No. of Observations")
 grid.arrange(p4,p5,p6,p7,p8,p9,nrow = 2)
 ```
 
 From the above graphs we made the following observation(s):
-  We observed undocumented values for the PAY attributes i.e "0" &"-2"
-On going through the discussions where the dataset was taken from we found that infact these values have the following meaning.
--2 = No consumption
-0  = The use of revolving credit card.
-So from here we found out that there are high number of observations where people are using revolving credit card.
-Source:
-  https://www.kaggle.com/uciml/default-of-credit-card-clients-dataset/discussion/34608 
+We observed undocumented values for the PAY attributes i.e "0" &"-2"
+We went back to Kaggle and searched for related discussions in the forum and we found that these values have the following meaning.
+* -2 = No consumption
+* 0  = The use of revolving credit card.
+Source: https://www.kaggle.com/uciml/default-of-credit-card-clients-dataset/discussion/34608 
+
+So from here we found out that there are high number of observations where people are using revolving credit card. We also observed that there is a spike in payment delays in September 2005.
 
 #####Numerical Features
+
+We would like to know the distribution of the numerical variables:
 
 ######Age
 ```{r, message=FALSE,warning=FALSE}
@@ -168,29 +174,32 @@ p11 = ggplot(data, aes(,data$AGE)) + geom_boxplot(fill = "white")+  scale_y_cont
 grid.arrange(p10,p11,nrow =1,top="AGE DISTRIBUTION AND OUTLIERS" )
 ```
 
+As we can see above, the use of credit cards concentrates on younger age (< 40) with the average age of `r mean(data$AGE)`. 
+
 ######Limit of Balance
 Lets explore the distribution and the outliers for the limit of balance.
 ```{r, message=FALSE,warning=FALSE}
 ggplot(data, aes(data$LIMIT_BAL)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Limit_BAL")+scale_y_continuous("Obs.")+labs(title = "Histogram")
 ```
 
-So we can see from the above histogram the people usually have limit balance: 20000,30000,50000,80000,200000.
+So we can see from the above histogram the people usually have the following limit balances: 20K, 30K, 50K, 80K, 200K and 500K.
 
 Now lets us check for outliers with a boxplot.
+
 ```{r, message=FALSE,warning=FALSE}
 ggplot(data, aes(x=factor(0),y=data$LIMIT_BAL)) + geom_boxplot(fill = "white")+
   scale_y_continuous("Limit_Bal")+scale_x_discrete("")+labs(title="Boxplot")
 ```
 
-So we can see the outliers are identified as individuals with a balance limit of over 600,000.
-Let us see how many instances have values >600,000
+So we can see that the 75th percentile has the credit limit of 250K. Next we would like to know how many customers have extremely high credit limits. We set 600K as the threshold based on the boxplot above.
+
 
 ```{r, message=FALSE,warning=FALSE}
 LIMIT_BAL_OUT <- with(data, which(LIMIT_BAL > 600000))
 NROW(LIMIT_BAL_OUT)
 ```
 
-As we can see it is only 79 instances and we can consider removing these.
+As we can see, it is only 79 instances and we can consider removing these.
 
 ######Bill Amount
 Lets explore the distribution and the outliers for BILL_AMTX. The document describes these attributes as follows:
@@ -203,24 +212,24 @@ BILL_AMT5                  | Amount of bill statement in May, 2005 (NT dollar)
 BILL_AMT6                  | Amount of bill statement in April, 2005 (NT dollar)
 
 ```{r, message=FALSE,warning=FALSE}
-p12 = ggplot(data, aes(data$BILL_AMT1)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT1")+scale_y_continuous("Obs.")+labs(title = "Histogram")
-p13 = ggplot(data, aes(data$BILL_AMT2)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT2")+scale_y_continuous("Obs.")+labs(title = "Histogram")
-p14 = ggplot(data, aes(data$BILL_AMT3)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT3")+scale_y_continuous("Obs.")+labs(title = "Histogram")
-p15 = ggplot(data, aes(data$BILL_AMT4)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT4")+scale_y_continuous("Obs.")+labs(title = "Histogram")
-p16 = ggplot(data, aes(data$BILL_AMT5)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT5")+scale_y_continuous("Obs.")+labs(title = "Histogram")
-p17 = ggplot(data, aes(data$BILL_AMT6)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT6")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+p12 = ggplot(data, aes(data$BILL_AMT1)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT1")+scale_y_continuous("Obs.")+labs(title = "Sept_2005")
+p13 = ggplot(data, aes(data$BILL_AMT2)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT2")+scale_y_continuous("Obs.")+labs(title = "Aug_2005")
+p14 = ggplot(data, aes(data$BILL_AMT3)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT3")+scale_y_continuous("Obs.")+labs(title = "July_2005")
+p15 = ggplot(data, aes(data$BILL_AMT4)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT4")+scale_y_continuous("Obs.")+labs(title = "June_2005")
+p16 = ggplot(data, aes(data$BILL_AMT5)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT5")+scale_y_continuous("Obs.")+labs(title = "May_2005")
+p17 = ggplot(data, aes(data$BILL_AMT6)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT6")+scale_y_continuous("Obs.")+labs(title = "April_2005")
 grid.arrange(p12,p13,p14,p15,p16,p17,nrow =3,top="BILL_AMTX DISTRIBUTION" )
 
 ```
 
 Now we have seen the distribution, lets check for outliers:
 ```{r, message=FALSE,warning=FALSE}
-p18 = ggplot(data, aes(,data$BILL_AMT1)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT1")+scale_x_continuous("")+labs(title="Boxplot")
-p19 = ggplot(data, aes(,data$BILL_AMT2)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT2")+scale_x_continuous("")+labs(title="Boxplot")
-p20 = ggplot(data, aes(,data$BILL_AMT3)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT3")+scale_x_continuous("")+labs(title="Boxplot")
-p21 = ggplot(data, aes(,data$BILL_AMT4)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT4")+scale_x_continuous("")+labs(title="Boxplot")
-p22 = ggplot(data, aes(,data$BILL_AMT5)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT5")+scale_x_continuous("")+labs(title="Boxplot")
-p23 = ggplot(data, aes(,data$BILL_AMT6)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT6")+scale_x_continuous("")+labs(title="Boxplot")
+p18 = ggplot(data, aes(,data$BILL_AMT1)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT1")+scale_x_continuous("")+labs(title="Sept_2005")
+p19 = ggplot(data, aes(,data$BILL_AMT2)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT2")+scale_x_continuous("")+labs(title="Aug_2005")
+p20 = ggplot(data, aes(,data$BILL_AMT3)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT3")+scale_x_continuous("")+labs(title="July_2005")
+p21 = ggplot(data, aes(,data$BILL_AMT4)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT4")+scale_x_continuous("")+labs(title="June_2005")
+p22 = ggplot(data, aes(,data$BILL_AMT5)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT5")+scale_x_continuous("")+labs(title="May_2005")
+p23 = ggplot(data, aes(,data$BILL_AMT6)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT6")+scale_x_continuous("")+labs(title="April_2005")
 grid.arrange(p18,p19,p20,p21,p22,p23,nrow =3,top="OUTLIERS for BILL_AMTX" )
 ```
 
@@ -262,35 +271,32 @@ grid.arrange(p30,p31,p32,p33,p34,p35,nrow =3,top="OUTLIERS for PAY_AMTX" )
 
 ####Bivariate Exploration
 
-Let us now try to plot a relation between two attributes from the data set.
+Let us now try to plot the relationship between two attributes from the dataset. Here we will just plot September 2005 data.
 
-We will take the first two numerical attributes i.e Age and Limit_Bal and check if there is a trend.
+First, we would like to see if there is any relationship between age and credit limits:
 
 ```{r, message=FALSE,warning=FALSE}
 ggplot(data, aes(AGE, LIMIT_BAL)) + geom_point() +
   scale_x_continuous("Age", breaks = seq(0,60,20))+
   scale_y_continuous("Limit_Bal", breaks = seq(0,1000000,by = 50000))+ theme_bw()
 
-```
-
-
-The relation b/w Age and Marriage should give us some kind of insight, lets check it out:
-  
-```{r, message=FALSE,warning=FALSE}
-ggplot(data,aes(x=AGE,fill = MARRIAGE))+geom_bar(position = "fill")
+library(ggpubr)
+ggscatter(data, x = "AGE", y = "LIMIT_BAL",
+         add = "reg.line", conf.int = TRUE,
+         cor.coef = TRUE, cor.method = "pearson",
+         xlab = "Age", ylab = "Limit_Bal")
 
 ```
 
-As we saw earlier as well, there are some undocumented value for marriage "0".
-Apart from that we see a clear trend in the dataset that as the age increases there are more number of married individuals.
+According to the graph above, there is little relationship between age and credit limits.
 
 
-Let us take a look at the relation between marriage and re-payment status:
+Let us take a look at the relationship between marriage status and re-payment status as of September 2005:
   
 ```{r, message=FALSE,warning=FALSE}
 ggplot(data,aes(x=PAY_0,fill = MARRIAGE))+geom_bar(position = "fill")
 ```
-So it looks like the single people tend to delay the re-payment more than the married people do.
+So it looks like the single people tend to delay the re-payment more than the married people do, with some exceptions.
 
 Now lets check if there is any trend we can observe if we plot the repayment status w.r.t sex.
 We will start with PAY_0 i.e The repayment status in september just to see if we see a trend and then we can explore further.
