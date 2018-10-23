@@ -322,7 +322,7 @@ Just as we suspected! The males are more likely to delay the repayment as compar
 
 ## Select Modelling Technique
 
-We chose to start with a k means clustering alorgirthm as most of our data was numeric and we were able to easily encode the categorical variables to make them numeric.  
+We chose to start with a k means clustering alorgirthm as most of our data was numeric. The first step to running the alogirthm is to make all the categorical variables into numeric by encoding them.  We chose to implement one hot encoding because our variables are nominal and not ordinal. 
 
 ## Encode Data
 
@@ -340,21 +340,39 @@ encod <- predict(dummies_model, newdata = data)
 # # Convert to dataframe
 data_encoded <- data.frame(encod)
 
-# # See the structure of the new dataset
-str(data_encoded)
+# # Summary of the new dataset
+summary(data_encoded)
+
 
 
 ```
 
+Now that the data is encoded and all variables are numeric we can implement the K means algorithm.  The K means algorithm works by creating K cluster.  Each cluster is based on feature similarity.  The alogirthm starts by randomly picking K centroids, then the alogirthm iterates through each point and assigns it to the nearest cluster based a distance formula. (ex: Euclidean).  After each point as been assigned a cluster, the centroids are re calculated by taking the mean of all data points in the clusters, next the points are reclassifed again until a stopping criteria is met. (No points change clusters or the mean of all data points in the cluster is minimized.)
+
+
+## Scale the Data
+
+Since the K means algorithm using distance to find the nearest point we need to ensure all the variables are on the same range.  We do this by normalizing the data.
+
+```{r, message=FALSE,warning=FALSE}
+
+normalize = function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+df = as.data.frame(lapply(df, normalize))
+
+
+```
 
 ## Find Optimal number of Clusters (K)
 
-To find the optimal number of clusters we used the Elbow method. The elbow method finds the optinal K value by considering the percentage of variance explained by each cluster.
+Before we run the K Mean algorithm we need to find the optimal K clusters. To find the optimal number of clusters we used the Elbow method. The elbow method finds the optinal K value by running mulptiple K Means for K from 1 to N and calculateing the Sum of Squared errors (SSE).  We then plot each SSE for each K, we then chose the smallest K such that it has a low SSE which is at the elbow point of the plot.
 
 ```{r, message=FALSE,warning=FALSE}
 #Find Optimal K using Elbow method
 
-df <- sample_n(data_encoded,10000)
+df <- sample_n(data_encoded,30000)
 
 wssplot <- function(data, nc=15, seed=1234){
   wss <- (nrow(data)-1)*sum(apply(data,2,var))
@@ -374,9 +392,12 @@ Based on the Elbow method, we found the optinal number to be 6
 
 
 ## Build K Means Model 
+
+We are now able to create the K mean model, we are creating K = 6 clusters, we also use nstart = 5 to run the k means algorithm 5 times with random centroids each time and take the best result.
+
 ```{r, message=FALSE,warning=FALSE}
 
-kmeans.result <- kmeans(df, centers=6)
+kmeans.result <- kmeans(df, centers=6,nstart = 5)
 
 ```
 
@@ -399,14 +420,7 @@ kmeans.result$centers
 
 #Vizualize Clusters
 par(mfrow=c(3,2))
-pie(colSums(df[kmeans.result$cluster==1,]),cex=0.5)
 
-pie(colSums(df[kmeans.result$cluster==2,]),cex=0.5)
-
-pie(colSums(df[kmeans.result$cluster==3,]),cex=0.5)
-pie(colSums(df[kmeans.result$cluster==4,]),cex=0.5)
-pie(colSums(df[kmeans.result$cluster==5,]),cex=0.5)
-pie(colSums(df[kmeans.result$cluster==6,]),cex=0.5)
 
 ```
 
@@ -505,57 +519,6 @@ grid.arrange(p, p_lof, nrow = 2,ncol = 1)
 
 
 ```
-
-The Random Forest with 500 trees and mtry of`r bestmtry$mtry` had a overall accuracy of  `r round(RF_confus$overall[1]*100,2)` compared to the decision tree model of `r round(confus$overall[1]*100,2)`.  Like the decision tree model the random forest is better at accurately classify target values of 1.  In the above graph the green line shows the error on the TARGET value of 1, the red line shows the error of classify Target value of 0 and the black line shows the Out of bag error of the random forest.  From the chart it looks like the error has converged at around 200 trees, but it does look like it is starting to coverge again around 400 trees. What would happen if we were to add more trees?
-
-### Find Optimal Tree
-
-```{r, message=FALSE,warning=FALSE,tidy=TRUE}
-control <- trainControl(method="repeatedcv", number=10, repeats=3, search="grid")
-
-modellist <- list()
-# loop to iterate through random forest models with different number of trees
-for (ntree in c(200,1000, 1500, 2000)) {
-fit <- train(factor(TARGET)~., data=train_data, method="rf", metric="Accuracy", tuneGrid=tunegrid,tuneLength = 50, trControl=control, ntree=ntree)
-key <- toString(ntree)
-modellist[[key]] <- fit
-}
-# compare results of all models (1000,1500 and 2000 trees)
-results <- resamples(modellist)
-summary(results)
-
-# Predict Test results 100 Trees
-RF200_model.pred <- predict(modellist$`200`, test_data)
-
-# Check Accuracy of Model 
-RF200_confus <- confusionMatrix(factor(RF200_model.pred),factor(test_data$TARGET))
-
-# Predict Test results 1000 Trees
-RF1000_model.pred <- predict(modellist$`1000`, test_data)
-
-# Check Accuracy of Model 
-RF1000_confus <- confusionMatrix(factor(RF1000_model.pred),factor(test_data$TARGET))
-
-# Predict Test results 1500 Trees
-RF2000_model.pred <- predict(modellist$`2000`, test_data)
-
-# Check Accuracy of Model 
-RF2000_confus <- confusionMatrix(factor(RF2000_model.pred),factor(test_data$TARGET))
-
-# Predict Test results 2000 Trees
-RF1500_model.pred <- predict(modellist$`1500`, test_data)
-
-# Check Accuracy of Model 
-RF1500_confus <- confusionMatrix(factor(RF1500_model.pred),factor(test_data$TARGET))
-
-#Compare accuracy across all models created
-pred_table <- data.table(Model = c("Decision Tree","Random Forest 200 Trees","Random Forest 500 Trees","Random Forest 1000 Tress","Random Forest 1500 Trees","Random Forest 2000 Trees"),Accuracy = c(confus$overall[1],RF200_confus$overall[1],RF_confus$overall[1],RF1000_confus$overall[1],RF1500_confus$overall[1],RF2000_confus$overall[1]))
-
-pred_table
-
-```
-
-We ran the Random forest (RF) model with 200, 1000, 1500 and 2000 trees and compared there accuracy to our RF model with 500 trees and the Decision tree model. We can see the best model was the random forest with 1500 trees. This had an accuracy of `r round(RF1500_confus$overall[1]*100,2)`
 
 
 # Evaluation
