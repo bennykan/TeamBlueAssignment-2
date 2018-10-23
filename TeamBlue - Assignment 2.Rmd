@@ -193,7 +193,7 @@ As we can see it is only 79 instances and we can consider removing these.
 ######Bill Amount
 Lets explore the distribution and the outliers for BILL_AMTX. The document describes these attributes as follows:
   
-  BILL_AMT1                  | Amount of bill statement in September, 2005 (NT dollar)
+BILL_AMT1                  | Amount of bill statement in September, 2005 (NT dollar)
 BILL_AMT2                  | Amount of bill statement in August, 2005 (NT dollar)
 BILL_AMT3                  | Amount of bill statement in July, 2005 (NT dollar)
 BILL_AMT4                  | Amount of bill statement in June, 2005 (NT dollar)
@@ -226,7 +226,7 @@ grid.arrange(p18,p19,p20,p21,p22,p23,nrow =3,top="OUTLIERS for BILL_AMTX" )
 ######Pay Amount
 Lets explore the distribution and the outliers for PAY_AMTX. The document describes these attributes as follows:
   
-  PAY_AMT1                   | Amount of previous payment in September, 2005 (NT dollar)
+PAY_AMT1                   | Amount of previous payment in September, 2005 (NT dollar)
 PAY_AMT2                   | Amount of previous payment in August, 2005 (NT dollar)
 PAY_AMT3                   | Amount of previous payment in July, 2005 (NT dollar)
 PAY_AMT4                   | Amount of previous payment in June, 2005 (NT dollar)
