@@ -57,21 +57,6 @@ PAY_AMT6                   | Amount of previous payment in April, 2005 (NT dolla
 default.payment.next.month | Default payment (1=yes, 0=no)
 
 
-## Data Preparation
-
-
-```{r, message=FALSE,warning=FALSE}
-
-#remove default column, create unlabelled dataset and ID Column
-data <- data[,!colnames(data) %in% c("default.payment.next.month")]
-
-
-#factor categorical variables
-factor_VARS <- c('SEX','EDUCATION','MARRIAGE','PAY_0','PAY_2','PAY_3','PAY_4','PAY_5','PAY_6')
-
-data[factor_VARS]<- lapply(data[factor_VARS],function(x) as.factor(x))
-
-```
 
 ## Data Exploration
 
@@ -107,6 +92,23 @@ Now lets look at the structure of the data.
 
 ```{r, message=FALSE}
 str(data)
+```
+### Factor categorical variables
+
+
+```{r, message=FALSE,warning=FALSE}
+
+#remove default column, create unlabelled dataset and ID Column
+data <- data[,!colnames(data) %in% c("default.payment.next.month")]
+
+
+#factor categorical variables
+factor_VARS <- c('SEX','EDUCATION','MARRIAGE','PAY_0','PAY_2','PAY_3','PAY_4','PAY_5','PAY_6')
+
+data[factor_VARS]<- lapply(data[factor_VARS],function(x) as.factor(x))
+
+str(data)
+
 ```
 
 
