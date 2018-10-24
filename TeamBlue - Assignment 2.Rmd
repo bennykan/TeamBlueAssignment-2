@@ -92,27 +92,38 @@ Now lets look at the structure of the data.
 str(data)
 ```
 
-##### AVI to RENAME THE FACTORS HERE #####
+### Renaming the values in categorical attributes
 
-We note that all of the variables are numeric initially. We will need to convert certain variables into factors.
-
-### Factor Categorical Variables and Create Unlabelled Dataset
-
+We note that the attribute "SEX" has numeric values. We will change the numeric values to M & F so that it is easier to read while plotting.
 
 ```{r, message=FALSE,warning=FALSE}
+data$SEX<-ifelse(data$SEX==1,"M","F")
+```
 
-#remove default column, create unlabelled dataset and ID Column
+
+###  Create Unlabelled Dataset and Factor Categorical Variables
+
+The dataset that we have has labelled data as we have the target value in the last column. In order to create a unlabelled dataset for our report we decided to remove this column along with the "ID" column as it has no importance.
+
+```{r, message=FALSE,warning=FALSE}
 data <- data[,!colnames(data) %in% c("default.payment.next.month")]
+data <- data[,!colnames(data) %in% c("ID")]
+```
 
+Now we will factorize some of the categorical attributes from the dataset.
 
-#factor categorical variables
+```{r, message=FALSE,warning=FALSE}
 factor_VARS <- c('SEX','EDUCATION','MARRIAGE','PAY_0','PAY_2','PAY_3','PAY_4','PAY_5','PAY_6')
 
 data[factor_VARS]<- lapply(data[factor_VARS],function(x) as.factor(x))
-
-str(data)
-
 ```
+
+Now let us check the data structure
+
+```{r, message=FALSE,warning=FALSE}
+str(data)
+```
+
 Now we have appropriate variables that are converted into factors and the last column has been removed to make the dataset unlabelled. 
 
 ###Data Analysis
@@ -141,9 +152,13 @@ From the above graphs we made the following observations:
 2. There are some values at "0" for the attributes Education and Marriage.
 3. For education level, 5 and 6 are categorized as unknown so we can look into grouping them into one level.
 
-######Pay Status
+######Payment Status
 According to the description, PAY_x is a set of categorical variables with the levels:
-  -1=pay duly, 1=payment delay for one month, 2=payment delay for two months,...8= payment delay for 8 months and 9=payment delay for 9 months and above.
+ -1   = pay duly
+  1   = payment delay for one month
+  2   = payment delay for two months,
+..8   = payment delay for 8 months and 9=payment delay for 9 months and above.
+
 ```{r, message=FALSE,warning=FALSE}
 p4 = ggplot(data,aes(data$PAY_0))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status Sept_2005")+scale_y_continuous("No. of Observations")
 p5 = ggplot(data,aes(data$PAY_2))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status Aug_2005")+scale_y_continuous("No. of Observations")
@@ -201,85 +216,98 @@ NROW(LIMIT_BAL_OUT)
 
 As we can see, it is only 79 instances and we can consider removing these.
 
-######Bill Amount
-Lets explore the distribution and the outliers for BILL_AMTX. The document describes these attributes as follows:
-  
-BILL_AMT1                  | Amount of bill statement in September, 2005 (NT dollar)
-BILL_AMT2                  | Amount of bill statement in August, 2005 (NT dollar)
-BILL_AMT3                  | Amount of bill statement in July, 2005 (NT dollar)
-BILL_AMT4                  | Amount of bill statement in June, 2005 (NT dollar)
-BILL_AMT5                  | Amount of bill statement in May, 2005 (NT dollar)
-BILL_AMT6                  | Amount of bill statement in April, 2005 (NT dollar)
+######Billing Amount & Payment Amount for the same month
+Lets explore the distribution of the Billing Amount and the Payment amount with respect to the month.
 
 ```{r, message=FALSE,warning=FALSE}
-p12 = ggplot(data, aes(data$BILL_AMT1)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT1")+scale_y_continuous("Obs.")+labs(title = "Sept_2005")
-p13 = ggplot(data, aes(data$BILL_AMT2)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT2")+scale_y_continuous("Obs.")+labs(title = "Aug_2005")
-p14 = ggplot(data, aes(data$BILL_AMT3)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT3")+scale_y_continuous("Obs.")+labs(title = "July_2005")
-p15 = ggplot(data, aes(data$BILL_AMT4)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT4")+scale_y_continuous("Obs.")+labs(title = "June_2005")
-p16 = ggplot(data, aes(data$BILL_AMT5)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT5")+scale_y_continuous("Obs.")+labs(title = "May_2005")
-p17 = ggplot(data, aes(data$BILL_AMT6)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("BILL_AMT6")+scale_y_continuous("Obs.")+labs(title = "April_2005")
-grid.arrange(p12,p13,p14,p15,p16,p17,nrow =3,top="BILL_AMTX DISTRIBUTION" )
-
+p12 = ggplot(data, aes(data$BILL_AMT1)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Bill Amount")+scale_y_continuous("Obs.")
+p24 = ggplot(data, aes(data$PAY_AMT1)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Payment Amount")+scale_y_continuous("Obs.")
+grid.arrange(p12,p24,nrow=1,top = "SEPTEMBER 2015")
 ```
+
+```{r, message=FALSE,warning=FALSE}
+p13 = ggplot(data, aes(data$BILL_AMT2)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Bill Amount")+scale_y_continuous("Obs.")
+p25 = ggplot(data, aes(data$PAY_AMT2)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Payment Amount")+scale_y_continuous("Obs.")
+grid.arrange(p13,p25,nrow=1,top = "AUGUST 2015")
+```
+
+
+```{r, message=FALSE,warning=FALSE}
+p14 = ggplot(data, aes(data$BILL_AMT3)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Bill Amount")+scale_y_continuous("Obs.")
+p26 = ggplot(data, aes(data$PAY_AMT3)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Payment Amount")+scale_y_continuous("Obs.")
+grid.arrange(p14,p26,nrow=1,top = "JULY 2015")
+```
+
+```{r, message=FALSE,warning=FALSE}
+p15 = ggplot(data, aes(data$BILL_AMT4)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Bill Amount")+scale_y_continuous("Obs.")
+p27 = ggplot(data, aes(data$PAY_AMT4)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Payment Amount")+scale_y_continuous("Obs.")
+grid.arrange(p15,p27,nrow=1,top = "JUNE 2015")
+```
+
+```{r, message=FALSE,warning=FALSE}
+p16 = ggplot(data, aes(data$BILL_AMT5)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Bill Amount")+scale_y_continuous("Obs.")
+p28 = ggplot(data, aes(data$PAY_AMT5)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Payment Amount")+scale_y_continuous("Obs.")
+grid.arrange(p16,p28,nrow=1,top = "MAY 2015")
+```
+
+```{r, message=FALSE,warning=FALSE}
+p17 = ggplot(data, aes(data$BILL_AMT6)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Bill Amount")+scale_y_continuous("Obs.")
+p29 = ggplot(data, aes(data$PAY_AMT6)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Payment Amount")+scale_y_continuous("Obs.")
+grid.arrange(p17,p29,nrow=1,top = "APRIL 2015")
+```
+
 
 Now we have seen the distribution, lets check for outliers:
+
 ```{r, message=FALSE,warning=FALSE}
-p18 = ggplot(data, aes(,data$BILL_AMT1)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT1")+scale_x_continuous("")+labs(title="Sept_2005")
-p19 = ggplot(data, aes(,data$BILL_AMT2)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT2")+scale_x_continuous("")+labs(title="Aug_2005")
-p20 = ggplot(data, aes(,data$BILL_AMT3)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT3")+scale_x_continuous("")+labs(title="July_2005")
-p21 = ggplot(data, aes(,data$BILL_AMT4)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT4")+scale_x_continuous("")+labs(title="June_2005")
-p22 = ggplot(data, aes(,data$BILL_AMT5)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT5")+scale_x_continuous("")+labs(title="May_2005")
-p23 = ggplot(data, aes(,data$BILL_AMT6)) + geom_boxplot(fill = "white")+  scale_y_continuous("BILL_AMT6")+scale_x_continuous("")+labs(title="April_2005")
-grid.arrange(p18,p19,p20,p21,p22,p23,nrow =3,top="OUTLIERS for BILL_AMTX" )
+p18 = ggplot(data, aes(,data$BILL_AMT1)) + geom_boxplot(fill = "white")+ scale_y_continuous("Billing Amount")+scale_x_continuous("")
+p30 = ggplot(data, aes(,data$PAY_AMT1)) + geom_boxplot(fill = "white")+  scale_y_continuous("Payment Amount")+scale_x_continuous("")
+grid.arrange(p18,p30,ncol=2,top="SEPTEMBER 2005")
 ```
 
-
-######Pay Amount
-Lets explore the distribution and the outliers for PAY_AMTX. The document describes these attributes as follows:
-  
-PAY_AMT1                   | Amount of previous payment in September, 2005 (NT dollar)
-PAY_AMT2                   | Amount of previous payment in August, 2005 (NT dollar)
-PAY_AMT3                   | Amount of previous payment in July, 2005 (NT dollar)
-PAY_AMT4                   | Amount of previous payment in June, 2005 (NT dollar)
-PAY_AMT5                   | Amount of previous payment in May, 2005 (NT dollar)
-PAY_AMT6                   | Amount of previous payment in April, 2005 (NT dollar)
-
 ```{r, message=FALSE,warning=FALSE}
-p24 = ggplot(data, aes(data$PAY_AMT1)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT1")+scale_y_continuous("Obs.")+labs(title = "Histogram")
-p25 = ggplot(data, aes(data$PAY_AMT2)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT2")+scale_y_continuous("Obs.")+labs(title = "Histogram")
-p26 = ggplot(data, aes(data$PAY_AMT3)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT3")+scale_y_continuous("Obs.")+labs(title = "Histogram")
-p27 = ggplot(data, aes(data$PAY_AMT4)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT4")+scale_y_continuous("Obs.")+labs(title = "Histogram")
-p28 = ggplot(data, aes(data$PAY_AMT5)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT5")+scale_y_continuous("Obs.")+labs(title = "Histogram")
-p29 = ggplot(data, aes(data$PAY_AMT6)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("PAY_AMT6")+scale_y_continuous("Obs.")+labs(title = "Histogram")
-grid.arrange(p24,p25,p26,p27,p28,p29,nrow =3,top="PAY_AMTX DISTRIBUTION" )
-
+p19 = ggplot(data, aes(,data$BILL_AMT2)) + geom_boxplot(fill = "white")+  scale_y_continuous("Billing Amount")+scale_x_continuous("")
+p31 = ggplot(data, aes(,data$PAY_AMT2)) + geom_boxplot(fill = "white")+  scale_y_continuous("Payment Amount")+scale_x_continuous("")
+grid.arrange(p19,p31,ncol=2,top="AUGUST 2005")
 ```
 
-Now we have seen the distribution, lets check for outliers:
-  
 ```{r, message=FALSE,warning=FALSE}
-p30 = ggplot(data, aes(,data$PAY_AMT1)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAY_AMT1")+scale_x_continuous("")+labs(title="Boxplot")
-p31 = ggplot(data, aes(,data$PAY_AMT2)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAY_AMT2")+scale_x_continuous("")+labs(title="Boxplot")
-p32 = ggplot(data, aes(,data$PAY_AMT3)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAY_AMT3")+scale_x_continuous("")+labs(title="Boxplot")
-p33 = ggplot(data, aes(,data$PAY_AMT4)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAYL_AMT4")+scale_x_continuous("")+labs(title="Boxplot")
-p34 = ggplot(data, aes(,data$PAY_AMT5)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAY_AMT5")+scale_x_continuous("")+labs(title="Boxplot")
-p35 = ggplot(data, aes(,data$PAY_AMT6)) + geom_boxplot(fill = "white")+  scale_y_continuous("PAY_AMT6")+scale_x_continuous("")+labs(title="Boxplot")
-grid.arrange(p30,p31,p32,p33,p34,p35,nrow =3,top="OUTLIERS for PAY_AMTX" )
+p20 = ggplot(data, aes(,data$BILL_AMT3)) + geom_boxplot(fill = "white")+  scale_y_continuous("Billing Amount")+scale_x_continuous("")
+p32 = ggplot(data, aes(,data$PAY_AMT3)) + geom_boxplot(fill = "white")+  scale_y_continuous("Payment Amount")+scale_x_continuous("")
+grid.arrange(p20,p32,ncol=2,top="JULY 2005")
+```
 
+```{r, message=FALSE,warning=FALSE}
+p21 = ggplot(data, aes(,data$BILL_AMT4)) + geom_boxplot(fill = "white")+  scale_y_continuous("Billing Amount")+scale_x_continuous("")
+p33 = ggplot(data, aes(,data$PAY_AMT4)) + geom_boxplot(fill = "white")+  scale_y_continuous("Payment Amount")+scale_x_continuous("")
+grid.arrange(p21,p33,ncol=2,top="JUNE 2005")
+```
+
+```{r, message=FALSE,warning=FALSE}
+p22 = ggplot(data, aes(,data$BILL_AMT5)) + geom_boxplot(fill = "white")+  scale_y_continuous("Billing Amount")+scale_x_continuous("")
+p34 = ggplot(data, aes(,data$PAY_AMT5)) + geom_boxplot(fill = "white")+  scale_y_continuous("Payment Amount")+scale_x_continuous("")
+grid.arrange(p22,p34,ncol=2,top="MAY 2005")
+```
+
+```{r, message=FALSE,warning=FALSE}
+p23 = ggplot(data, aes(,data$BILL_AMT6)) + geom_boxplot(fill = "white")+  scale_y_continuous("Billing Amount")+scale_x_continuous("")
+p35 = ggplot(data, aes(,data$PAY_AMT6)) + geom_boxplot(fill = "white")+  scale_y_continuous("Payment Amount")+scale_x_continuous("")
+grid.arrange(p23,p35,ncol=2,top="APRIL 2005")
 ```
 
 
 ####Bivariate Exploration
+We will look at the following relationships in the dataset:
 
-Let us now try to plot the relationship between two attributes from the dataset. Here we will just plot September 2005 data.
+Age and credit Limit
+Marriage Status and Repayment Status
+Sex and repayent Status
+Education and repayment Status
 
+#####Age and Credit Limit
 First, we would like to see if there is any relationship between age and credit limits:
 
 ```{r, message=FALSE,warning=FALSE}
-ggplot(data, aes(AGE, LIMIT_BAL)) + geom_point() +
-  scale_x_continuous("Age", breaks = seq(0,60,20))+
-  scale_y_continuous("Limit_Bal", breaks = seq(0,1000000,by = 50000))+ theme_bw()
-
 library(ggpubr)
 ggscatter(data, x = "AGE", y = "LIMIT_BAL",
          add = "reg.line", conf.int = TRUE,
@@ -290,33 +318,43 @@ ggscatter(data, x = "AGE", y = "LIMIT_BAL",
 
 According to the graph above, there is little relationship between age and credit limits.
 
+#####Marriage status and Repayment Status
 
 Let us take a look at the relationship between marriage status and re-payment status as of September 2005:
   
 ```{r, message=FALSE,warning=FALSE}
-ggplot(data,aes(x=PAY_0,fill = MARRIAGE))+geom_bar(position = "fill")
+ggplot(data,aes(x=PAY_0,fill = MARRIAGE))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in September 2005")
 ```
 So it looks like the single people tend to delay the re-payment more than the married people do, with some exceptions.
+
+#####Sex and Repayment Status
 
 Now lets check if there is any trend we can observe if we plot the repayment status w.r.t sex.
 We will start with PAY_0 i.e The repayment status in september just to see if we see a trend and then we can explore further.
 
 ```{r, message=FALSE,warning=FALSE}
-ggplot(data,aes(x=PAY_0,fill = SEX))+geom_bar(position = "fill")
+ggplot(data,aes(x=PAY_0,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in September 2005")
 ```
 
 Looks like more number of females paid the amount duly in september and more number of males had a delay in re-payment.
 Let us check for the rest of the months to see if it is the same situation every month.
+
 ```{r, message=FALSE,warning=FALSE}
-b1 = ggplot(data,aes(x=PAY_2,fill = SEX))+geom_bar(position = "fill")
-b2 = ggplot(data,aes(x=PAY_3,fill = SEX))+geom_bar(position = "fill")
-b3 = ggplot(data,aes(x=PAY_4,fill = SEX))+geom_bar(position = "fill")
-b4 = ggplot(data,aes(x=PAY_5,fill = SEX))+geom_bar(position = "fill")
-b5 = ggplot(data,aes(x=PAY_6,fill = SEX))+geom_bar(position = "fill")
+b1 = ggplot(data,aes(x=PAY_2,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in August 2005")
+b2 = ggplot(data,aes(x=PAY_3,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in July 2005")
+b3 = ggplot(data,aes(x=PAY_4,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in June 2005")
+b4 = ggplot(data,aes(x=PAY_5,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in May 2005")
+b5 = ggplot(data,aes(x=PAY_6,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in April 2005")
 grid.arrange(b1,b2,b3,b4,b5,nrow = 3)
 ```
 
 Just as we suspected! The males are more likely to delay the repayment as compared to the females.
+
+#####Education and Repayment Status
+
+```{r, message=FALSE,warning=FALSE}
+ggplot(data,aes(x=PAY_0,fill = EDUCATION))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in September 2005")
+```
 
 # Modelling
 
