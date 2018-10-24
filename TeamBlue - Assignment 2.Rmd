@@ -107,7 +107,7 @@ The dataset that we have has labelled data as we have the target value in the la
 
 ```{r, message=FALSE,warning=FALSE}
 data <- data[,!colnames(data) %in% c("default.payment.next.month")]
-data <- data[,!colnames(data) %in% c("ID")]
+#data <- data[,!colnames(data) %in% c("ID")]
 ```
 
 Now we will factorize some of the categorical attributes from the dataset.
@@ -299,22 +299,10 @@ grid.arrange(p23,p35,ncol=2,top="APRIL 2005")
 ####Bivariate Exploration
 We will look at the following relationships in the dataset:
 
-Age and credit Limit
-Marriage Status and Repayment Status
-Sex and repayent Status
-Education and repayment Status
+* Marriage Status and Repayment Status
+* Sex and repayent Status
+* Education and repayment Status
 
-#####Age and Credit Limit
-First, we would like to see if there is any relationship between age and credit limits:
-
-```{r, message=FALSE,warning=FALSE}
-library(ggpubr)
-ggscatter(data, x = "AGE", y = "LIMIT_BAL",
-         add = "reg.line", conf.int = TRUE,
-         cor.coef = TRUE, cor.method = "pearson",
-         xlab = "Age", ylab = "Limit_Bal")
-
-```
 
 According to the graph above, there is little relationship between age and credit limits.
 
@@ -356,6 +344,8 @@ Just as we suspected! The males are more likely to delay the repayment as compar
 ggplot(data,aes(x=PAY_0,fill = EDUCATION))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in September 2005")
 ```
 
+###AVI ADDS IN DATA CLEANING
+
 # Modelling
 
 ## Select Modelling Technique
@@ -379,7 +369,8 @@ encod <- predict(dummies_model, newdata = data)
 data_encoded <- data.frame(encod)
 
 # # Summary of the new dataset
-summary(data_encoded)
+str(data_encoded)
+
 
 
 
@@ -393,6 +384,7 @@ Now that the data is encoded and all variables are numeric we can implement the 
 Since the K means algorithm using distance to find the nearest point we need to ensure all the variables are on the same range.  We do this by normalizing the data.
 
 ```{r, message=FALSE,warning=FALSE}
+df <- data_encoded
 
 normalize = function(x) {
   return ((x - min(x)) / (max(x) - min(x)))
@@ -400,7 +392,7 @@ normalize = function(x) {
 
 df = as.data.frame(lapply(df, normalize))
 
-
+summary(df)
 ```
 
 ## Find Optimal number of Clusters (K)
@@ -416,7 +408,7 @@ wssplot <- function(data, nc=15, seed=1234){
   wss <- (nrow(data)-1)*sum(apply(data,2,var))
   for (i in 2:nc){
     set.seed(seed)
-    wss[i] <- sum(kmeans(data, centers=i)$withinss)}
+    wss[i] <- sum(kmeans(data, centers=i, nstart=15)$withinss)}
   plot(1:nc, wss, type="b", xlab="Number of Clusters",
        ylab="Within groups sum of squares")}
 
@@ -426,7 +418,7 @@ wssplot(df, nc=10)
 
 ```
 
-Based on the Elbow method, we found the optinal number to be 6
+Based on the Elbow method, we found the optinal number to be 6. Beyond 6, we see minimal improvement.
 
 
 ## Build K Means Model 
@@ -435,7 +427,7 @@ We are now able to create the K mean model, we are creating K = 6 clusters, we a
 
 ```{r, message=FALSE,warning=FALSE}
 
-kmeans.result <- kmeans(df, centers=6,nstart = 5)
+kmeans.result <- kmeans(df, centers=7,nstart = 20)
 
 ```
 
@@ -555,7 +547,7 @@ grid.arrange(p, p_lof, nrow = 2,ncol = 1)
 
 ```{r, message=FALSE,warning=FALSE}
 
-
+data[outliers,]
 ```
 
 
