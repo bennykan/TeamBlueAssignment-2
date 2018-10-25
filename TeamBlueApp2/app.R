@@ -24,6 +24,7 @@ library(rattle)
 library(readxl)
 library(cluster)
 library(shiny)
+library(DT)
 
 data <- read.csv("default of credit card clients.csv", header = TRUE, na= 'NA')
 
@@ -57,12 +58,16 @@ ui <- fluidPage(
    sidebarLayout(
       sidebarPanel(
         numericInput('clusters', 'Cluster count', 4,
-                     min = 1, max = 9)
+                     min = 1, max = 9),
+        
+        numericInput('outliers', 'Outlier count', 10,
+                     min = 1, max = 50)      
       ),
       
       # Show a plot of the generated distribution
       mainPanel(
-         plotOutput("clusterPlot")
+         plotOutput("clusterPlot"),
+         DT::dataTableOutput("outlierList")
       )
    )
 )
@@ -75,6 +80,8 @@ server <- function(input, output) {
   #})
   
   clusterSize <- reactive({input$clusters })
+  
+  outlierSize <- reactive({input$outliers })
   
   output$clusterPlot <- renderPlot({
     
@@ -92,8 +99,43 @@ server <- function(input, output) {
     
     p<-p+geom_point()+theme+xlab(percentage[1]) + ylab(percentage[2])
     
+    centers <- kmeans.result$centers[kmeans.result$cluster, ]  
+    
+    # Calculate distance each point is from the center of the cluster
+    distances <- sqrt(rowSums((df - centers)^2))
+    # Take the top 20 fartherest points from the cluster center
+    outliers <- order(distances, decreasing=T)[1:outlierSize()]
+    
+    #Plot Outliers
+    p<-p + geom_point(data=df_out[outliers,],aes(x=PC1,y=PC2), colour="red", size=4)+ggtitle("PCA 6 Means Cluster with Outliers")
+
     p
   })
+  
+  output$outlierList = DT::renderDataTable({
+    # kmeans.result <- kmeans(df, clusterSize(),nstart = 20)
+    # 
+    # par(mfrow=c(3,2))
+    # 
+    # df_pca <- prcomp(df)
+    # df_out <- as.data.frame(df_pca$x)
+    # 
+    # p<-ggplot(df_out,aes(x=PC1,y=PC2,color = as.factor(kmeans.result$cluster ) ))
+    # theme<-theme(panel.background = element_blank(),panel.border=element_rect(fill=NA),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),strip.background=element_blank(),axis.text.x=element_text(colour="black"),axis.text.y=element_text(colour="black"),axis.ticks=element_line(colour="black"),plot.margin=unit(c(1,1,1,1),"line"))
+    # percentage <- round(df_pca$sdev / sum(df_pca$sdev) * 100, 2)
+    # percentage <- paste( colnames(df_out), "(", paste( as.character(percentage), "%", ")", sep="") )
+    # 
+    # p<-p+geom_point()+theme+xlab(percentage[1]) + ylab(percentage[2])
+    # 
+    # centers <- kmeans.result$centers[kmeans.result$cluster, ]  
+    # 
+    # # Calculate distance each point is from the center of the cluster
+    # distances <- sqrt(rowSums((df - centers)^2))
+    # # Take the top 20 fartherest points from the cluster center
+    # outliers <- order(distances, decreasing=T)[1:10]
+    # 
+    # outliers
+  })  
 
 }
 
