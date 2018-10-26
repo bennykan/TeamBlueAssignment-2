@@ -393,8 +393,10 @@ kmeans.result <- kmeans(df, centers=7,nstart = 20)
 
 Explain K Means Models ......
 
-
+## Describe Clusters
+=======
 ### Assess Clusters
+>>>>>>> 174f86664b76bc5bfed3f2ba6e35c3bea7c76bbd
 
 ```{r, message=FALSE,warning=FALSE}
 
@@ -408,8 +410,95 @@ kmeans.result$size
 kmeans.result$centers
 
 
-#Vizualize Clusters
-par(mfrow=c(3,2))
+
+```
+
+### Numeric Variables
+
+
+```{r, message=FALSE,warning=FALSE}
+
+#Create 2 data sets one with Categorical and one with Numeric variables
+nn <- data[,!colnames(data) %in% c('?..ID','SEX','EDUCATION','MARRIAGE','PAY_0','PAY_2','PAY_3','PAY_4','PAY_5','PAY_6','ï..ID')]
+cc <- data[,colnames(data) %in% c('SEX','EDUCATION','MARRIAGE','PAY_0','PAY_2','PAY_3','PAY_4','PAY_5','PAY_6','ï..ID','AGE')]
+
+#Add in Cluster results 
+nn$Cluster <- kmeans.result$cluster
+cc$Cluster <- kmeans.result$cluster
+
+#Transpose data 
+mn <- melt(nn, id.vars = c("Cluster"))
+
+mc <- melt(cc, id.vars = c("Cluster"))
+
+#Aggregate Average value for each cluster and numeric variable
+a_mn <- sqldf('SELECT Cluster, Variable, avg(value) as AvgValue
+FROM mn
+GROUP BY Cluster, Variable')
+
+
+#Factor Cluster varaible to be discrete
+a_mn$Cluster <- as.factor(a_mn$Cluster)
+
+#Plot clusters and variables
+x <- ggplot(data = a_mn, aes(x = variable, y = AvgValue, group = Cluster, fill = Cluster))
+x <- x + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+x <- x + theme_bw()
+x <- x +  coord_flip()
+
+
+
+#Crosstab Data
+
+reshape2::dcast(a_mn, Cluster ~ variable, value.var = "AvgValue")
+
+x
+
+```
+
+For each cluster we calculated the average value for each numeric variable.  From these average we are able to describe the clusters. We noticed that age is very similar for all clusters.  Cluster 1 has the highest average Limit Balance and the points also have the highest Bill Amount,but they dont always have the highest Payment amount.  Cluster 2 has the lowest average Bill Amount and the second lowest Limit Balance.  Cluster 6 has the Lowest Limit Balance but they have the second highest Bill Amount, they are also the third lowest in average payment.
+
+Cluster 1 - High Balance / High Bill Amount / Pays off 2nd Most (Big Spender)
+Cluster 2 -
+Cluster 3-
+Cluster 4-
+Cluster 5-
+Cluster 6-
+
+
+### Categorical Variables
+
+```{r, message=FALSE,warning=FALSE}
+
+
+#Aggregate Freqeuncy for each cluster and categorical variable
+a_mc <- sqldf("SELECT Cluster, Variable,Value, COUNT(*) as Freq
+FROM mc
+GROUP BY Cluster, Variable,Value")
+
+#Factor Cluster varaible to be discrete
+a_mc$Cluster <- as.factor(a_mc$Cluster)
+
+#Plot clusters and variables
+edu <- ggplot(data = a_mc[a_mc$variable =="EDUCATION",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+
+sex <- ggplot(data = a_mc[a_mc$variable =="SEX",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+
+mar <- ggplot(data = a_mc[a_mc$variable =="MARRIAGE",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+
+
+pay <- ggplot(data = a_mc[a_mc$variable=='PAY_0'|a_mc$variable=='PAY_2'|a_mc$variable=='PAY_3'|a_mc$variable=='PAY_4'|a_mc$variable=='PAY_5'|a_mc$variable=='PAY_6',], aes(x = Cluster, y = Freq, group = variable, fill = value))
+
+pay <- pay + geom_bar(stat = "identity", width = 0.5, position = "fill") + facet_grid(. ~ variable)  + labs(title = "Paided On Time: Cluster Analysis")
+pay <- pay +  coord_flip() + theme(axis.title.x=element_blank(),
+axis.text.x=element_blank(),
+axis.ticks.x=element_blank())
+
+
+
+
+grid.arrange(edu,sex,mar,nrow = 3)
+pay
 
 
 ```
@@ -477,7 +566,7 @@ allows us to identify outliers in a data set tha would not be outliers in anothe
 ```{r, message=FALSE,warning=FALSE}
 
 #run LOF Model takes awhile 5 to 10 minutes
-outlier.scores <- lofactor(df,k=30)
+outlier.scores <- lofactor(df,k=15)
 
 #Plotdensity of Outliers
 plot(density(outlier.scores))
@@ -508,8 +597,9 @@ grid.arrange(p, p_lof, nrow = 2,ncol = 1)
 ```{r, message=FALSE,warning=FALSE}
 
 data[outliers,]
-```
 
+data[outliers_lof]
+```
 
 ## Evaluation
 
