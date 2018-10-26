@@ -78,6 +78,7 @@ library(gridExtra)
 library(rattle)
 library(readxl)
 library(cluster)
+library(sqldf)
 ```
 ### Load Datasets
 Now that the packages are loaded, we can load in the dataset.
@@ -368,7 +369,7 @@ wssplot <- function(data, nc=15, seed=1234){
   wss <- (nrow(data)-1)*sum(apply(data,2,var))
   for (i in 2:nc){
     set.seed(seed)
-    wss[i] <- sum(kmeans(data, centers=i, nstart=15)$withinss)}
+    wss[i] <- sum(kmeans(data, centers=i, nstart=5)$withinss)}
   plot(1:nc, wss, type="b", xlab="Number of Clusters",
        ylab="Within groups sum of squares")}
 
@@ -387,16 +388,20 @@ We are now able to create the K mean model, we are creating K = 6 clusters, we a
 
 ```{r, message=FALSE,warning=FALSE}
 
-kmeans.result <- kmeans(df, centers=7,nstart = 20)
+#set.seed(1234)
+set.seed(9897665)
+
+kmeans.result <- kmeans(df, centers=6,nstart = 30)
 
 ```
 
 Explain K Means Models ......
 
-## Describe Clusters
-=======
+## Describe Cluster
+
+
 ### Assess Clusters
->>>>>>> 174f86664b76bc5bfed3f2ba6e35c3bea7c76bbd
+
 
 ```{r, message=FALSE,warning=FALSE}
 
@@ -458,10 +463,10 @@ x
 
 For each cluster we calculated the average value for each numeric variable.  From these average we are able to describe the clusters. We noticed that age is very similar for all clusters.  Cluster 1 has the highest average Limit Balance and the points also have the highest Bill Amount,but they dont always have the highest Payment amount.  Cluster 2 has the lowest average Bill Amount and the second lowest Limit Balance.  Cluster 6 has the Lowest Limit Balance but they have the second highest Bill Amount, they are also the third lowest in average payment.
 
-Cluster 1 - High Balance / High Bill Amount / Pays off 2nd Most (Big Spender)
+Cluster 1 - 
 Cluster 2 -
 Cluster 3-
-Cluster 4-
+Cluster 4- High Balance / High Bill Amount / Pays Significant Amount 
 Cluster 5-
 Cluster 6-
 
@@ -596,7 +601,19 @@ grid.arrange(p, p_lof, nrow = 2,ncol = 1)
 
 ```{r, message=FALSE,warning=FALSE}
 
-data[outliers,]
+
+#Add cluster column to data
+data_out <- data
+data_out$cluster <- kmeans.result$cluster
+
+km_outlier <- data_out[outliers,]
+
+
+
+table(km_outlier$cluster)
+
+
+km_a
 
 data[outliers_lof]
 ```
