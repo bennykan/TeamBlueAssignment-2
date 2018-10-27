@@ -1,0 +1,13 @@
+name: TeamBlueApp2
+title: TeamBlueApp2
+username:
+account: teamblueml
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 538255
+bundleId: 1666762
+url: https://teamblueml.shinyapps.io/TeamBlueApp2/
+when: 1540680352.43597
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: default of credit card clients.csv|Global.R

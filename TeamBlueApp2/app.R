@@ -1,11 +1,7 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
+# Interactive plot and list of credit card client anomaly analysis #
+
+# Import Library
+library(shiny)
 library(dplyr)
 library(reshape2)
 library(ggplot2)
@@ -23,40 +19,29 @@ library(gridExtra)
 library(rattle)
 library(readxl)
 library(cluster)
-library(shiny)
 library(DT)
 
-data <- read.csv("default of credit card clients.csv", header = TRUE, na= 'NA')
+# Import Data
 
-set.seed(456292)
 
-dummies_model <- dummyVars(ï..ID ~ ., data=data)
-
-encod <- predict(dummies_model, newdata = data)
-
-data_encoded <- data.frame(encod)
-
-df <- data_encoded
-
-normalize = function(x) {
-  return ((x - min(x)) / (max(x) - min(x)))
-}
-
-df = as.data.frame(lapply(df, normalize))
-
-df <- sample_n(data_encoded,30000)
 
 
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-   
+  headerPanel('Clustering Algorithm for Unupervised Learning - Credit Card Client Anomaly Analysis'),
    # Application title
-   titlePanel("Old Faithful Geyser Data"),
+   # titlePanel("Old Faithful Geyser Data"),
+  
+
    
    # Sidebar with a slider input for number of bins 
    sidebarLayout(
       sidebarPanel(
+        #Selector for file upload
+        fileInput('datafile', 'Choose CSV file',
+                  accept=c('text/csv', 'text/comma-separated-values,text/plain')),
+        
         numericInput('clusters', 'Cluster count', 4,
                      min = 1, max = 9),
         
@@ -66,8 +51,14 @@ ui <- fluidPage(
       
       # Show a plot of the generated distribution
       mainPanel(
-         plotOutput("clusterPlot"),
-         DT::dataTableOutput("outlierList")
+        tabsetPanel(
+          tabPanel("Oulier Plot", plotOutput("clusterPlot")), 
+          tabPanel("Outlier List",DT::dataTableOutput("outlierList")),
+          tabPanel("Summary", verbatimTextOutput("summary")),
+          tabPanel("Disclaimer", verbatimTextOutput("Disclaimer"))
+        )
+         
+         
       )
    )
 )
@@ -79,11 +70,47 @@ server <- function(input, output) {
  #   kmeans(df, input$clusters, nstart = 20)
   #})
   
+  #This function is repsonsible for loading in the selected file
+  filedata <- reactive({
+    infile <- input$datafile
+    if (is.null(infile)) {
+      # User has not uploaded a file yet
+      return(NULL)
+    }
+    read.csv(infile$datapath)
+  })
+  
   clusterSize <- reactive({input$clusters })
   
   outlierSize <- reactive({input$outliers })
   
   output$clusterPlot <- renderPlot({
+    
+    
+    data <- filedata()
+    
+    if (is.null(data)) return(NULL)
+    
+    # 
+    set.seed(456292)
+    
+    dummies_model <- dummyVars(ï..ID ~ ., data=data)
+    
+    encod <- predict(dummies_model, newdata = data)
+    
+    data_encoded <- data.frame(encod)
+    
+    df <- data_encoded
+    
+    normalize = function(x) {
+      return ((x - min(x)) / (max(x) - min(x)))
+    }
+    
+    df = as.data.frame(lapply(df, normalize))
+    
+    df <- sample_n(data_encoded,30000)
+    
+    
     
     kmeans.result <- kmeans(df, clusterSize(),nstart = 20)
     
@@ -107,7 +134,7 @@ server <- function(input, output) {
     outliers <- order(distances, decreasing=T)[1:outlierSize()]
     
     #Plot Outliers
-    p<-p + geom_point(data=df_out[outliers,],aes(x=PC1,y=PC2), colour="red", size=4)+ggtitle("PCA 6 Means Cluster with Outliers")
+    p<-p + geom_point(data=df_out[outliers,],aes(x=PC1,y=PC2), colour="red", size=4)+ggtitle("PCA Means Cluster with Outliers")
 
     p
   })
@@ -136,6 +163,14 @@ server <- function(input, output) {
     # 
     # outliers
   })  
+  
+  output$summary <- renderText({
+    "Hello "
+  })
+  
+  output$disclaimer <- renderText({
+    "This App is jointly submitted by Tyler Blakeley, Benjamin Kan, Mohammad Islam, Avijeet Sing "
+  })
 
 }
 
