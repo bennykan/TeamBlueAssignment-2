@@ -1,0 +1,729 @@
+---
+title: "Clustering Algorithm for Unupervised Learning - Credit Card Client Anomaly Analysis"
+author: "Tyler Blakeley, Benjamin Kan, Mohammad Islam, Avijeet Singh"
+date: "October 29 2018"
+output:
+  html_document:
+    fig_height: 4.5
+    fig_width: 7
+    highlight: tango
+    number_sections: yes
+    theme: readable
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+# Business Understanding
+We work at the Retail Credit Risk Analytics department at the Bank of Taiwan. Recently, there have been increasing credit card debt defaults in our bank. Senior Management would like our department to develop a machine learning algorithm to find anomalies in the data that we hope will show early warning signs of default. This will allow the Retail Credit Risk and Collections departments to act early by monitoring these cleints' credit card limits to find ways to minimize the losses. We would also like to find out which demographics are in the anomaly group which would indicate high susceptiblility of defaults. The Management instructed us to use data from the third parties to build the algorithms as proof-of-concepts before we use our own data. They would also like us to build a user-friendly app to allow them to load in the dataset and identify clients that are in the anomaly group which may indicate high risk of defaulting on their credit card debts.        
+
+# Data Understanding
+
+## Data Source and Collection
+We sourced the third party credit card data from Kaggle (https://www.kaggle.com/uciml/default-of-credit-card-clients-dataset). This dataset contains information on default payments, demographic factors, credit data, history of payment, and bill statements of credit card clients in Taiwan from April 2005 to September 2005. As mentioned above, the goal is to identify a group of customers who exhibit abnormal behaviour comparing with the rest of the data. We assume that abnormal credit behaviour would lead to high default risks. Note that the dataset has already been anonymized to protect the customers' identities.
+
+## Data Description
+In the dataset, there are 25 variables:
+
+Variable Name              | Description
+---------------------------|--------------------------------------------------------------------------------
+ID                         | ID of each client
+LIMIT_BAL                  | Amount of given credit in NT dollars (includes individual and                                               | family/supplementary credit
+SEX                        | Gender (1=male, 2=female)
+EDUCATION                  | (1=graduate school, 2=university, 3=high school, 4=others, 5=unknown, 6=unknown)
+MARRIAGE                   | Marital status (1=married, 2=single, 3=others)
+AGE                        | Age in years
+PAY_0                      | Repayment status in September, 2005 (-1=pay duly, 1=payment delay for one month,                            | 2=payment delay for two months, ... 8=payment delay for eight months, 9=payment                             | delay for nine months and above)                 
+PAY_2                      | Repayment status in August, 2005 (scale same as above)
+PAY_3                      | Repayment status in July, 2005 (scale same as above)
+PAY_4                      | Repayment status in June, 2005 (scale same as above)
+PAY_5                      | Repayment status in May, 2005 (scale same as above)
+PAY_6                      | Repayment status in April, 2005 (scale same as above)
+BILL_AMT1                  | Amount of bill statement in September, 2005 (NT dollar)
+BILL_AMT2                  | Amount of bill statement in August, 2005 (NT dollar)
+BILL_AMT3                  | Amount of bill statement in July, 2005 (NT dollar)
+BILL_AMT4                  | Amount of bill statement in June, 2005 (NT dollar)
+BILL_AMT5                  | Amount of bill statement in May, 2005 (NT dollar)
+BILL_AMT6                  | Amount of bill statement in April, 2005 (NT dollar)
+PAY_AMT1                   | Amount of previous payment in September, 2005 (NT dollar)
+PAY_AMT2                   | Amount of previous payment in August, 2005 (NT dollar)
+PAY_AMT3                   | Amount of previous payment in July, 2005 (NT dollar)
+PAY_AMT4                   | Amount of previous payment in June, 2005 (NT dollar)
+PAY_AMT5                   | Amount of previous payment in May, 2005 (NT dollar)
+PAY_AMT6                   | Amount of previous payment in April, 2005 (NT dollar)
+default.payment.next.month | Default payment (1=yes, 0=no)
+
+## Data Exploration
+
+### Load Packages
+```{r, message=FALSE,warning=FALSE}
+#import packages;
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(Hmisc)
+library(corrplot)
+library(mice)
+library(VIM)
+library(pROC)
+library(caret)
+library(corrgram)
+library(GGally)
+library(ggthemes) 
+library(DMwR)
+library(gridExtra)
+library(rattle)
+library(readxl)
+library(cluster)
+library(sqldf)
+library(knitr)
+```
+### Load Datasets
+Now that the packages are loaded, we can load in the dataset. Note that we converted the dataset file from the Excel to csv format.
+
+```{r, message=FALSE}
+data <- read.csv("default of credit card clients.csv", header = TRUE, na= 'NA')
+
+```
+
+Now lets look at the structure and summary of the data.
+
+```{r, message=FALSE}
+str(data)
+summary(data)
+
+```
+
+
+### Renaming Categorical Attributes and Column Labels
+
+We note that the attribute "SEX" has numeric values. We will change the numeric values to M & F so that it is easier to read while plotting. Moreover, certain column names are not very descriptive. So we are renaming them to more meaningful names.
+
+Upon examining the categorical variables, we observed the following:
+
+* Education has 0 values in certain rows and category 5 and 6 both mean "unknown"
+* Marriage has 0 values in certain rows
+
+Therefore, we made the following adjustments:
+
+* Change the Education factor of 6 to 5 to eliminate one categorical value
+* Assign the Education factor of 0 to 5 ("unknown")
+* Assign the Marriage factor of 0 to 3 ("others")
+
+```{r, message=FALSE,warning=FALSE}
+data$SEX<-ifelse(data$SEX==1,"M","F")
+
+data$EDUCATION <- ifelse(data$EDUCATION==0|data$EDUCATION==5|data$EDUCATION==6,5,data$EDUCATION)
+
+data$MARRIAGE <- ifelse(data$MARRIAGE==0,3,data$MARRIAGE)
+
+colnames(data)[colnames(data)=="PAY_0"] <- "PAY_STS_SEPT"
+colnames(data)[colnames(data)=="PAY_2"] <- "PAY_STS_AUG"
+colnames(data)[colnames(data)=="PAY_3"] <- "PAY_STS_JULY"
+colnames(data)[colnames(data)=="PAY_4"] <- "PAY_STS_JUNE"
+colnames(data)[colnames(data)=="PAY_5"] <- "PAY_STS_MAY"
+colnames(data)[colnames(data)=="PAY_6"] <- "PAY_STS_APRIL"
+colnames(data)[colnames(data)=="BILL_AMT1"] <- "BILL_AMT_SEPT"
+colnames(data)[colnames(data)=="BILL_AMT2"] <- "BILL_AMT_AUG"
+colnames(data)[colnames(data)=="BILL_AMT3"] <- "BILL_AMT_JULY"
+colnames(data)[colnames(data)=="BILL_AMT4"] <- "BILL_AMT_JUNE"
+colnames(data)[colnames(data)=="BILL_AMT5"] <- "BILL_AMT_MAY"
+colnames(data)[colnames(data)=="BILL_AMT6"] <- "BILL_AMT_APRIL"
+colnames(data)[colnames(data)=="PAY_AMT1"] <- "PAY_AMT_SEPT"
+colnames(data)[colnames(data)=="PAY_AMT2"] <- "PAY_AMT_AUG"
+colnames(data)[colnames(data)=="PAY_AMT3"] <- "PAY_AMT_JULY"
+colnames(data)[colnames(data)=="PAY_AMT4"] <- "PAY_AMT_JUNE"
+colnames(data)[colnames(data)=="PAY_AMT5"] <- "PAY_AMT_MAY"
+colnames(data)[colnames(data)=="PAY_AMT6"] <- "PAY_AMT_APRIL"
+
+```
+
+Let's do the summary of data again to confirm the changes are applied correctly.
+
+```{r, message=FALSE,warning=FALSE}
+summary(data)
+```
+
+###  Create Unlabelled Dataset and Factor Categorical Variables
+
+The dataset that we have has labelled data as we have the target value in the last column. In order to create a unlabelled dataset for our report we decided to remove this column.
+
+```{r, message=FALSE,warning=FALSE}
+data <- data[,!colnames(data) %in% c("default.payment.next.month")]
+```
+
+Now we will factorize some of the categorical attributes from the dataset.
+
+```{r, message=FALSE,warning=FALSE}
+factor_VARS <- c('SEX','EDUCATION','MARRIAGE','PAY_STS_SEPT','PAY_STS_AUG','PAY_STS_JULY','PAY_STS_JUNE','PAY_STS_MAY','PAY_STS_APRIL')
+
+data[factor_VARS]<- lapply(data[factor_VARS],function(x) as.factor(x))
+```
+
+Now let us check the data structure again.
+
+```{r, message=FALSE,warning=FALSE}
+str(data)
+```
+
+Now that we have appropriate variables with the desired data types with the dataset being made unlabelled, we can move on to perform data analyses. 
+
+###Data Analysis
+Now we explore the data. We can divide the analysis into two categories:
+* Univariate Exploration
+* Bivariate Exploration
+
+####Univariate Exploration
+We can further divide this into two categories for data exploration:
+* Categorical Features
+* Numerical Features
+
+#####Categorical Features
+Let us visualize the categorical data.
+
+######SEX, EDUCATION & MARRIAGE
+```{r, message=FALSE,warning=FALSE}
+p1 = ggplot(data,aes(data$SEX))+geom_bar(fill="steelblue")+scale_x_discrete("Sex")+scale_y_continuous("No. of Observations")
+p2 = ggplot(data,aes(data$EDUCATION))+geom_bar(fill="steelblue")+scale_x_discrete("Education")+scale_y_continuous("No. of Observations")
+p3 = ggplot(data,aes(data$MARRIAGE))+geom_bar(fill="steelblue")+scale_x_discrete("Marriage")+scale_y_continuous("No. of Observations")
+grid.arrange(p1,p2,p3,nrow = 1)
+```
+
+From the above graphs we made the following observations:
+1. The number of females are more in the dataset as compared to number of males.
+2. Most of the customers achieved at least university education level.
+3. A majority of the customers is single.
+
+######Payment Status
+According to the description, PAY_x is a set of categorical variables with the levels:
+ -1   = pay duly
+  1   = payment delay for one month
+  2   = payment delay for two months,
+..8   = payment delay for 8 months and 9=payment delay for 9 months and above.
+
+```{r, message=FALSE,warning=FALSE}
+p4 = ggplot(data,aes(data$PAY_STS_SEPT))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status Sept_2005")+scale_y_continuous("No. of Observations")
+p5 = ggplot(data,aes(data$PAY_STS_AUG))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status Aug_2005")+scale_y_continuous("No. of Observations")
+p6 = ggplot(data,aes(data$PAY_STS_JULY))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status July_2005")+scale_y_continuous("No. of Observations")
+p7 = ggplot(data,aes(data$PAY_STS_JUNE))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status June_2005")+scale_y_continuous("No. of Observations")
+p8 = ggplot(data,aes(data$PAY_STS_MAY))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status May_2005")+scale_y_continuous("No. of Observations")
+p9 = ggplot(data,aes(data$PAY_STS_APRIL))+geom_bar(fill="steelblue")+scale_x_discrete("Payment Status April_2005")+scale_y_continuous("No. of Observations")
+grid.arrange(p4,p5,p6,p7,p8,p9,nrow = 2)
+```
+
+From the above graphs we made the following observation(s):
+We observed undocumented values for the PAY attributes i.e "0" &"-2"
+We went back to Kaggle and searched for related discussions in the forum and we found that these values have the following meaning.
+* -2 = No consumption
+* 0  = The use of revolving credit card.
+Source: https://www.kaggle.com/uciml/default-of-credit-card-clients-dataset/discussion/34608 
+
+So from here we found out that there are high number of observations where people are using revolving credit card. We also observed that there is a spike in payment delays in September 2005.
+
+#####Numerical Features
+
+We would like to explore the distributions of the numerical variables:
+
+######Age
+```{r, message=FALSE,warning=FALSE}
+p10 = ggplot(data, aes(data$AGE)) + geom_histogram(binwidth = 1,colour="black",fill="white")+  scale_x_continuous("Age")+scale_y_continuous("Observations Count")+labs(title = "Histogram")
+p11 = ggplot(data, aes(,data$AGE)) + geom_boxplot(fill = "white")+  scale_y_continuous("Age")+scale_x_continuous("")+labs(title="Boxplot")
+grid.arrange(p10,p11,nrow =1,top="AGE DISTRIBUTION AND OUTLIERS" )
+```
+
+As we can see above, the use of credit cards concentrates on younger age (< 40) with the average age of `r mean(data$AGE)`. 
+
+######Limit of Balance
+Lets explore the distribution and the outliers for the limit of balance.
+
+```{r, message=FALSE,warning=FALSE}
+ggplot(data, aes(data$LIMIT_BAL)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Limit_BAL")+scale_y_continuous("Obs.")+labs(title = "Histogram")
+```
+
+We can see that from the above histogram, the customers usually have the following limit balances: 20K, 30K, 50K, 80K, 200K and 500K. We also observed that a sizable number of customers were authorized high credit card limits above 250K.
+
+Now lets us check for outliers with a boxplot.
+
+```{r, message=FALSE,warning=FALSE}
+ggplot(data, aes(x=factor(0),y=data$LIMIT_BAL)) + geom_boxplot(fill = "white")+
+  scale_y_continuous("Limit_Bal")+scale_x_discrete("")+labs(title="Boxplot")
+```
+
+So we can see that the 75th percentile has the credit limit of 250K. Next we would like to know how many customers have extremely high credit limits. We set 600K as the threshold based on the boxplot above.
+
+
+```{r, message=FALSE,warning=FALSE}
+LIMIT_BAL_OUT <- with(data, which(LIMIT_BAL > 600000))
+NROW(LIMIT_BAL_OUT)
+```
+
+There are 79 accounts whose limits exceed 600K. Our credit risk monitoring team has a special monitoring program to track these accounts because we could expose to larger losses when these customers fully draw down the limits and then default on their debts.
+
+######Average Billing Amount & Payment Amount
+As for the billing balances and payment amounts, since we have 6 months of data, analyzing the balances for each month might not add much value in the data exploring exercise. We decided to take the averages of the billing amounts and payment amounts across the 6-month period for each account and then observe the distributions. We will also add two columns to populate the mean values of bill and payment amounts respectively.
+
+```{r, message=FALSE,warning=FALSE}
+data$billmean <- rowMeans(data[c('BILL_AMT_SEPT', 'BILL_AMT_AUG','BILL_AMT_JULY','BILL_AMT_JUNE','BILL_AMT_MAY','BILL_AMT_APRIL')], na.rm=TRUE)
+data$paymean<-rowMeans(data[c('PAY_AMT_SEPT','PAY_AMT_AUG','PAY_AMT_JULY','PAY_AMT_JUNE','PAY_AMT_MAY','PAY_AMT_APRIL')], na.rm=TRUE)
+```
+
+Now that we have introduced the mean attributes let us plot for the same.
+
+```{r, message=FALSE,warning=FALSE}
+p12 = ggplot(data, aes(data$billmean)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Mean Bill Amount")+scale_y_continuous("Obs.")
+p24 = ggplot(data, aes(data$paymean)) + geom_histogram(binwidth = 5000,colour="black",fill="white")+  scale_x_continuous("Mean Payment Amount")+scale_y_continuous("Obs.")
+grid.arrange(p12,p24,nrow=1,top = "Avergae Bill & Payment amount for all months")
+```
+
+Based on the above charts, we observe that the customers tend to pay off the credit cards bills in smaller amounts than the actual amounts in the bill statements as the distribution of the payment amounts are very skewed towards smaller values. The disbution of the bill amounts is also skewed but it has fatter tail at the high bill amount area.
+
+The skewness of these distributions can be further visualized in the boxplots below:
+
+```{r, message=FALSE,warning=FALSE}
+p18 = ggplot(data, aes(,data$billmean)) + geom_boxplot(fill = "white")+ scale_y_continuous("Average Billing Amount")+scale_x_continuous("")
+p30 = ggplot(data, aes(,data$paymean)) + geom_boxplot(fill = "white")+  scale_y_continuous("Average Payment Amount")+scale_x_continuous("")
+grid.arrange(p18,p30,ncol=2,top="Boxplot for Avergae Bill & Payment amount for all months")
+```
+
+Once again, the boxplots verify our observations above.
+
+####Bivariate Exploration
+We will look at the following relationships in the dataset:
+
+* Marriage Status and Repayment Status
+* Sex and Repayment Status
+* Education and Repayment Status
+
+#####Marriage status and Repayment Status
+We are using the repayment data as of Seotember 2005 for us to draw the insights.
+
+Let us take a look at the relationship between marriage status and re-payment status as of September 2005:
+  
+```{r, message=FALSE,warning=FALSE}
+ggplot(data,aes(x=PAY_STS_SEPT,fill = MARRIAGE))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in September 2005")
+```
+
+To recap, here is the description of the repayment status flag: (-1=pay duly, 1=payment delay for one month, 2=payment delay for two months, ... 8=payment delay for eight months, 9=payment delay for nine months and above)
+
+Based on the chart above, we observe that majority of the customers who are behind on their credit card payments are mostly single, except the 7-month delay bucket.
+
+#####Sex and Repayment Status
+
+Now lets check if there is any trend we can observe if we plot the repayment status w.r.t gender.
+
+```{r, message=FALSE,warning=FALSE}
+ggplot(data,aes(x=PAY_STS_SEPT,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in September 2005")
+```
+
+We observed that a majority of customers who is behind on their credit card payments is male as of September 2005.
+
+Let us check for the rest of the months to see if it is the same situation every month.
+
+```{r, message=FALSE,warning=FALSE}
+b1 = ggplot(data,aes(x=PAY_STS_AUG,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in August 2005")
+b2 = ggplot(data,aes(x=PAY_STS_JULY,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in July 2005")
+b3 = ggplot(data,aes(x=PAY_STS_JUNE,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in June 2005")
+b4 = ggplot(data,aes(x=PAY_STS_MAY,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in May 2005")
+b5 = ggplot(data,aes(x=PAY_STS_APRIL,fill = SEX))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in April 2005")
+grid.arrange(b1,b2,b3,b4,b5,nrow = 3)
+```
+
+Just as we suspected! The males are more likely to be behind their credit card bills.
+
+
+#####Education and Repayment Status
+
+```{r, message=FALSE,warning=FALSE}
+ggplot(data,aes(x=PAY_STS_SEPT,fill = EDUCATION))+geom_bar(position = "fill")+scale_x_discrete("Repayment Status in September 2005")
+```
+
+To recap, here is the description of the repayment status flag: (-1=pay duly, 1=payment delay for one month, 2=payment delay for two months, ... 8=payment delay for eight months, 9=payment delay for nine months and above). The education level flag has the following legend: (1=graduate school, 2=university, 3=high school, 4=others, 5=unknown)
+
+We observe that most customers who are behind their credit card payments have at least univerity education. Since the observation is most likely the same for the other months, we won't repeat the analysus here.
+
+#Data Preparation
+
+##Check for Missing Values
+Now that we have explored the original data lets look for missing values.
+```{r, message=FALSE,warning=FALSE}
+sum(is.na.data.frame(data))
+```
+So we can see from above that we have 0 missing values so we don't have to fill in missing values.
+
+##Data Cleaning
+Earlier we had introduced two new attributes (billmean & paymean) for our data explorations. We will now remove them as we don't need them in our modelling work.
+
+```{r, message=FALSE,warning=FALSE}
+data$billmean<-NULL
+data$paymean<-NULL
+```
+
+##Create Payment Ratios Columns
+
+Let's look at the relationship between the Bill_AMT[N] and Pay_AMT[N] variables, where N is from September to April 2005. Normally, a bill statement is issued in the month after the payment month. That is, for example, a customer receives the statement in July 2005 in which the customer is required to clear the balance in August 2005.
+
+```{r, message=FALSE,warning=FALSE}
+
+data[1,colnames(data) %in% c("BILL_AMT_JULY","PAY_AMT_AUG")]
+
+```
+
+We created ratios to see how much of the previous month bill did the user pay off. We made some assumptions where if the Bill Amount is negative then the ratio should be 1 has the bill has been overpaid.
+
+
+```{r, message=FALSE,warning=FALSE}
+
+
+data$Ratio_BILL_AUG <- ifelse(data$PAY_AMT_SEPT==0,0,ifelse(data$BILL_AMT_AUG <=0,1,data$PAY_AMT_SEPT/data$BILL_AMT_AUG))
+data$Ratio_BILL_JULY <- ifelse(data$PAY_AMT_AUG==0,0,ifelse(data$BILL_AMT_JULY <=0,1,data$PAY_AMT_AUG/data$BILL_AMT_JULY))
+data$Ratio_BILL_JUNE <- ifelse(data$PAY_AMT_JULY==0,0,ifelse(data$BILL_AMT_JUNE <=0,1,data$PAY_AMT_JULY/data$BILL_AMT_JUNE))
+data$Ratio_BILL_MAY <- ifelse(data$PAY_AMT_JUNE==0,0,ifelse(data$BILL_AMT_MAY <=0,1,data$PAY_AMT_JUNE/data$BILL_AMT_MAY))
+data$Ratio_BILL_APRIL <- ifelse(data$PAY_AMT_MAY==0,0,ifelse(data$BILL_AMT_APRIL <=0,1,data$PAY_AMT_MAY/data$BILL_AMT_APRIL))
+```
+
+#Modelling
+
+##Select Modelling Technique
+
+We chose to start with a K means clustering alorgirthm as most of our data are numeric. The first step for running the alogirthm is to make all the categorical variables into numeric by encoding them.  We chose to implement one hot encoding because our variables are nominal and not ordinal. 
+
+##Data Encoding
+
+```{r, message=FALSE,warning=FALSE}
+
+data_f <- data
+
+#encod categorical columns
+dummies_model <- dummyVars(ï..ID ~ ., data=data_f)
+
+# Create the dummy variables using predict. The Y variable (ï..ID) will not be present in encod
+encod <- predict(dummies_model, newdata = data_f)
+
+# # Convert to dataframe
+data_encoded <- data.frame(encod)
+
+```
+
+Now that the data is encoded and all variables are numeric, we can implement the K means algorithm.  The K means algorithm works by creating K cluster.  Each cluster is based on feature similarity.  The alogirthm starts by randomly picking K centroids, then the alogirthm iterates through each point and assigns it to the nearest cluster based a distance formula. (ex: Euclidean).  After each point has been assigned a cluster, the centroids are re-calculated by taking the mean distances of all data points in the clusters, next the points are reclassifed again until a stopping criteria is met. (No points change clusters or the mean of all data points in the cluster is minimized.)
+
+##Data Normalization
+
+Since the K means algorithm using distance to find the nearest point we need to ensure all the variables are on the same range.  We do this by normalizing the data.
+
+```{r, message=FALSE,warning=FALSE}
+df <- data_encoded
+
+normalize = function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+df = as.data.frame(lapply(df, normalize))
+```
+
+##Finding Optimal Number of Clusters (K)
+
+Before we run the K Mean algorithm we need to find the optimal K clusters. To find the optimal number of clusters we used the Elbow method. The elbow method finds the optimal K value by running mulptiple K Means for K from 1 to N and calculateing the Sum of Squared errors (SSE).  We then plot each SSE for each K, we then chose an optimal value of K such that it has a low SSE but further increase of K would make little improvement to the SSE. That K value would be the elbow point of the plot.
+
+```{r, message=FALSE,warning=FALSE}
+#Find Optimal K using Elbow method
+
+wssplot <- function(data, nc=15, seed=1234){
+  wss <- (nrow(data)-1)*sum(apply(data,2,var))
+  for (i in 2:nc){
+    set.seed(seed)
+    wss[i] <- sum(kmeans(data, centers=i, nstart=5)$withinss)}
+  plot(1:nc, wss, type="b", xlab="Number of Clusters",
+       ylab="Within groups sum of squares")}
+
+wssplot(df, nc=10) 
+
+```
+
+Based on the Elbow method, we found the optimal number to be 4. Beyond 4, we see gradually decreasing improvements on the SSE.
+
+## Building K-Means Model 
+
+We are now able to create the K means model, we are creating 4 clusters with the 4 corresponding centroids being randomly chosen 20 times.
+
+```{r, message=FALSE,warning=FALSE}
+
+set.seed(9897665)
+
+kmeans.result <- kmeans(df, centers=4, nstart=15, iter.max = 100)
+
+```
+
+## K-Means Model Results
+
+
+### Cluster Assessments
+By now, each account is assigned to a cluster number. The table below displays the number of accounts assigned to the corresponding clusters.
+
+```{r, message=FALSE,warning=FALSE}
+
+#ClusterSize
+table(kmeans.result$cluster)
+
+```
+
+We can see Cluster 2 is by far the largest cluster over 2 times the next biggest, cluster 1 and 4 are roughly the same size.
+
+### Numeric Variables
+
+
+We will first look at each cluster in regards to our numeric variables.
+
+```{r, message=FALSE,warning=FALSE}
+
+#Create 2 data sets one with Categorical and one with Numeric variables
+nn <- data[,!colnames(data) %in% c('?..ID','SEX','EDUCATION','MARRIAGE','PAY_STS_SEPT','PAY_STS_AUG','PAY_STS_JULY','PAY_STS_JUNE','PAY_STS_MAY','PAY_STS_APRIL','ï..ID')]
+cc <- data[,colnames(data) %in% c('SEX','EDUCATION','MARRIAGE','PAY_STS_SEPT','PAY_STS_AUG','PAY_STS_JULY','PAY_STS_JUNE','PAY_STS_MAY','PAY_STS_APRIL','ï..ID','AGE')]
+
+#Add in Cluster results 
+nn$Cluster <- kmeans.result$cluster
+cc$Cluster <- kmeans.result$cluster
+
+#Transpose data 
+mn <- melt(nn, id.vars = c("Cluster"))
+
+mc <- melt(cc, id.vars = c("Cluster"))
+
+#Aggregate Average value for each cluster and numeric variable
+a_mn <- sqldf('SELECT Cluster, Variable, avg(value) as AvgValue
+FROM mn
+GROUP BY Cluster, Variable')
+
+
+#Factor Cluster varaible to be discrete
+a_mn$Cluster <- as.factor(a_mn$Cluster)
+
+#Plot clusters and variables
+
+#Age
+Age_d <- ggplot(data = a_mn[a_mn$variable %in% c("AGE"),], aes(x = variable, y = AvgValue, group = Cluster, fill = Cluster))
+Age_d <- Age_d + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+Age_d <- Age_d + theme_bw()
+Age_d <- Age_d +  coord_flip()
+
+Age_d
+
+#Ratios of Payment to Bill
+
+Paid <- ggplot(data = a_mn[a_mn$variable %in% c("Ratio_BILL_AUG","Ratio_BILL_JULY","Ratio_BILL_JUNE","Ratio_BILL_MAY","Ratio_BILL_APRIL"),], aes(x = variable, y = AvgValue, group = Cluster, fill = Cluster))
+Paid <- Paid + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+Paid <- Paid + theme_bw()
+Paid <- Paid +  coord_flip()
+
+Paid
+
+
+x <- ggplot(data = a_mn[!a_mn$variable %in% c("Ratio_BILL_AUG","Ratio_BILL_JULY","Ratio_BILL_JUNE","Ratio_BILL_MAY","Ratio_BILL_APRIL","AGE"),], aes(x = variable, y = AvgValue, group = Cluster, fill = Cluster))
+x <- x + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+x <- x + theme_bw()
+x <- x +  coord_flip()
+
+x
+
+#Crosstab Data
+
+reshape2::dcast(a_mn, Cluster ~ variable, value.var = "AvgValue")
+
+
+
+```
+
+For each cluster we calculated the average value for each numeric variable.  From these average we are able to describe the clusters. 
+
+* Cluster 1 - Lower Balance Limit / Lower Age / High Bill Amount / Smallest Payment Amount / On Avg. Pays Little of Bill
+* Cluster 2 - Medium Balance Limit / Lower Age / Highest Bil Amount / Higher Payment Amount /  Pays small Amount of Bill
+* Cluster 3 - Higher Balance Limit / Higher Age / Lowest Bill Amount / Highest Payment Amount / Pays most of Bill
+* Cluster 4 - Highest Balance / Highest Age / Low Bill Amount / Medium Payment Amoont / Pays all of bill and more
+
+
+### Categorical Variables and Age
+
+Next we will look at each cluster with respect to the categorical variables and age.
+
+
+```{r, message=FALSE,warning=FALSE}
+#Aggregate Freqeuncy for each cluster and categorical variable
+a_mc <- sqldf("SELECT Cluster, Variable,Value, COUNT(*) as Freq
+FROM mc
+GROUP BY Cluster, Variable,Value")
+
+#Factor Cluster varaible to be discrete
+a_mc$Cluster <- as.factor(a_mc$Cluster)
+
+#Creat Plot clusters and variables
+edu <- ggplot(data = a_mc[a_mc$variable =="EDUCATION",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "fill") + labs(title = "Credit ~ Education") + scale_fill_discrete(labels=c("Married","Single","Others"))
+
+sex <- ggplot(data = a_mc[a_mc$variable =="SEX",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "fill") + labs(title = "Credit ~ SEX")
+
+mar <- ggplot(data = a_mc[a_mc$variable =="MARRIAGE",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "fill") + labs(title = "Credit ~ Marital Status") + scale_fill_discrete(labels=c("Graduate School","University","High School","Others"))
+
+pay <- ggplot(data = a_mc[a_mc$variable=='PAY_STS_SEPT'|a_mc$variable=='PAY_STS_AUG'|a_mc$variable=='PAY_STS_JULY'|a_mc$variable=='PAY_STS_JUNE'|a_mc$variable=='PAY_STS_MAY'|a_mc$variable=='PAY_STS_APRIL',], aes(x = Cluster, y = Freq, group = variable, fill = value))
+
+pay <- pay + geom_bar(stat = "identity", width = 0.5, position = "fill") + facet_grid(. ~ variable)  + labs(title = "Credit Balance Paided: Cluster Analysis")
+pay <- pay +  coord_flip()+ theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+grid.arrange(edu,sex,mar,nrow = 3,top = "Cluster Analysis")
+pay + scale_fill_discrete(labels=c("Pay Ontime","No consumption","Revolving credit card","Pay Delay 1 Mth","Pay Delay 2 Mths","Pay Delay 3 Mths","Pay Delay 4 Mths","Pay Delay 5 Mths","Pay Delay 6 Mths","Pay Delay 7 Mths","Pay Delay 8 Mths"))
+
+```
+
+For each cluster we calculated the frequency value for each categorical variable.  From these frequencies we are able to describe the clusters. 
+
+1. Cluster 1 
+    + Uses Revolving credit a little, but payment is frequently late by 2 months
+    + Around 51% Female
+    + Around 45% Graduate School, 55% University
+2. Cluster 2 
+    + Almost solely uses revolving credit
+    + Around 55% Female
+    + Around 40% Graduate School, 60% University
+3. Cluster 3 
+    + Uses there credit a lot, and usually pays it ontime
+    + Around 60% Female
+    + 50% graduate School , 50% University
+4. Cluster 4
+    + Does not use their credit card frequently, if thye do pays within 1 month
+    + Almost 75% Female
+    + 50% graduate School , 50% University
+
+### Visualize Model with PCA
+
+We will use Principle Componet Analysis (PCA) to help us Visualize our clusters.  PCA works by reducing dimensoinality of the data. We want to reduce the dimensionality to 2d because it will allow us to graph the clusters. PCAcreates new columns that are linearly uncorrelated variables, and sorts thems in descending where PC1 will account for the highest variability of the data, and PC2 will be seocnd most and so on.
+
+```{r, message=FALSE,warning=FALSE}
+df_pca <- prcomp(df)
+df_out <- as.data.frame(df_pca$x)
+
+p<-ggplot(df_out,aes(x=PC1,y=PC2,color = as.factor(kmeans.result$cluster ) ))
+theme<-theme(panel.background = element_blank(),panel.border=element_rect(fill=NA),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),strip.background=element_blank(),axis.text.x=element_text(colour="black"),axis.text.y=element_text(colour="black"),axis.ticks=element_line(colour="black"),plot.margin=unit(c(1,1,1,1),"line"))
+percentage <- round(df_pca$sdev / sum(df_pca$sdev) * 100, 2)
+percentage <- paste( colnames(df_out), "(", paste( as.character(percentage), "%", ")", sep="") )
+
+p<-p+geom_point()+theme+xlab(percentage[1]) + ylab(percentage[2])
+
+p
+
+```
+
+Looking at the vizualized data we can see some of the clusters are well formed and there is minimal overlap, clusters 2,3 and 4 are almost fully homogeneous from each other. Cluster 1 seems to be overlapping with parts of all of the other clusters.
+
+
+###Finding Anomalies (Outliers)
+
+####Anomaly Detection using K Means
+
+To find anomalies we first used the K means clusters centroids to calculate the distnace each point is away from there cluster centroid.  We then take the top 5 farthest points from each cluster centroid and plot them.
+
+```{r, message=FALSE, warning=FALSE}
+
+#Find the Center of each cluster
+centers <- kmeans.result$centers[kmeans.result$cluster, ]  
+
+# Calculate distance each point is from the center of the cluster
+distances <- sqrt(rowSums((df - centers)^2))
+# Take the top 20 fartherest points from the cluster center
+outliers <- order(distances, decreasing=T)[1:20]
+
+dst <- as.data.frame(distances)
+
+dst$cluster <- kmeans.result$cluster
+dst$ID <- seq.int(nrow(data))
+
+outliers <- dst %>%
+  group_by(cluster) %>%
+  top_n(n = 5, wt = distances)
+
+#Plot Outliers
+p<-p + geom_point(data=df_out[outliers$ID,],aes(x=PC1,y=PC2), colour="red", size=2)+ggtitle("PCA Cluster Analysis with Outliers")
+
+p
+
+
+
+```
+
+
+
+<!-- ####Anomaly Detection using Local Outlier Factor -->
+
+
+<!-- Another way to find outlier in unsupervised learning is by using the Local outlier -->
+<!-- Facotr alogorithm.  This alogrithm is similar to the previous one we used but differs -->
+<!-- by comparing local density where locality is based on the k nearest neighbours.  The LOF -->
+<!-- allows us to identify outliers in a data set tha would not be outliers in another area of the data set. -->
+
+
+<!-- ```{r, message=FALSE,warning=FALSE} -->
+
+<!-- #run LOF Model takes awhile 5 to 10 minutes -->
+
+<!-- #Plotdensity of Outliers -->
+<!-- plot(density(outlier.scores)) -->
+
+
+<!-- #Plot outliers from LOF -->
+<!-- outliers_lof <- order(outlier.scores, decreasing=T)[1:20] -->
+
+
+<!-- p_lof<-ggplot(df_out,aes(x=PC1,y=PC2,color = as.factor(kmeans.result$cluster ) ))+geom_point()+theme+xlab(percentage[1]) + ylab(percentage[2]) + geom_point(data=df_out[outliers_lof,],aes(x=PC1,y=PC2), colour="red", size=3)+ggtitle("PCA LOF Outliers") -->
+
+
+<!-- #compare K means outlier to LOF -->
+<!-- grid.arrange(p, p_lof, nrow = 2,ncol = 1) -->
+
+
+
+<!-- ``` -->
+
+
+
+
+
+
+
+<!-- #### Look at individual outliers -->
+
+<!-- ```{r, message=FALSE,warning=FALSE} -->
+
+
+<!-- #Add cluster column to data -->
+<!-- data_out <- data -->
+<!-- data_out$cluster <- kmeans.result$cluster -->
+
+<!-- km_outlier <- data_out[outliers,] -->
+
+
+
+<!-- table(km_outlier$cluster) -->
+
+<!-- ``` -->
+
+#Evaluation
+
+### Assessment With Respect To Business Objectives
+Our business objective for this project is to load in the dataset and identify clients that are in the anomaly group which may indicate high risk of defaulting on their credit card debts. The clustering algorithm allows us to identify the top 20 clients that belong to the anomaly group:
+
+```{r, message=FALSE, warning=FALSE}
+
+customer_anomaly<-data[outliers$ID,!colnames(data) %in% c('ï..ID','Ratio_BILL_AUG','Ratio_BILL_JULY','Ratio_BILL_JUNE','Ratio_BILL_MAY','Ratio_BILL_APRIL')]
+customer_anomaly$Cluster<-outliers$cluster
+kable(customer_anomaly,caption="List of Customers Exhibiting Anomaly Characteristics")
+
+```
+
+
+#Next Steps
+
+.
+
+
+#Deployment
+
+
