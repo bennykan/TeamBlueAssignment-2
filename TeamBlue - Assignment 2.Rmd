@@ -56,6 +56,8 @@ PAY_AMT5                   | Amount of previous payment in May, 2005 (NT dollar)
 PAY_AMT6                   | Amount of previous payment in April, 2005 (NT dollar)
 default.payment.next.month | Default payment (1=yes, 0=no)
 
+
+
 ## Data Exploration
 
 ### Load Packages
@@ -85,6 +87,8 @@ Now that the packages are loaded, we can load in the dataset.
 
 ```{r, message=FALSE}
 data <- read.csv("default of credit card clients.csv", header = TRUE, na= 'NA')
+
+
 ```
 
 Now lets look at the structure of the data.
@@ -93,12 +97,21 @@ Now lets look at the structure of the data.
 str(data)
 ```
 
+
 ### Renaming the values in categorical attributes
 
 We note that the attribute "SEX" has numeric values. We will change the numeric values to M & F so that it is easier to read while plotting.
 
+We also noted there was 3 unknown values in Education, we decided to group them up into one unknown value
+
 ```{r, message=FALSE,warning=FALSE}
 data$SEX<-ifelse(data$SEX==1,"M","F")
+
+data$EDUCATION <- ifelse(data$EDUCATION==0|data$EDUCATION==5|data$EDUCATION==6,5,data$EDUCATION)
+
+data$MARRIAGE <- ifelse(data$MARRIAGE==0,3,data$MARRIAGE)
+
+
 ```
 
 
@@ -306,6 +319,28 @@ data$billmean<-NULL
 data$paymean<-NULL
 ```
 
+### Create Payment Ratios
+
+We noticed the variables Bill_AMT[N] and Pay_AMT[N] for N from 1 to 6 are related by the the Pay_AMT from the month is based on the Bill_AMT from the previous month.
+
+```{r, message=FALSE,warning=FALSE}
+
+data[1,colnames(data) %in% c("BILL_AMT3","PAY_AMT2")]
+
+```
+
+We created ratios to see how much of the previous month bill did the user pay off. We madesome assumptions where if the Bill Amount is negative then the ratio should be 1 has the bill has been over paided.
+
+
+```{r, message=FALSE,warning=FALSE}
+
+
+data$Ratio_2 <- ifelse(data$PAY_AMT1==0,0,ifelse(data$BILL_AMT2 <=0,1,data$PAY_AMT1/data$BILL_AMT2))
+data$Ratio_3 <- ifelse(data$PAY_AMT2==0,0,ifelse(data$BILL_AMT3 <=0,1,data$PAY_AMT2/data$BILL_AMT3))
+data$Ratio_4 <- ifelse(data$PAY_AMT3==0,0,ifelse(data$BILL_AMT4 <=0,1,data$PAY_AMT3/data$BILL_AMT4))
+data$Ratio_5 <- ifelse(data$PAY_AMT4==0,0,ifelse(data$BILL_AMT5 <=0,1,data$PAY_AMT4/data$BILL_AMT5))
+data$Ratio_6 <- ifelse(data$PAY_AMT5==0,0,ifelse(data$BILL_AMT6 <=0,1,data$PAY_AMT5/data$BILL_AMT6))
+```
 
 ## Modelling
 
@@ -316,15 +351,14 @@ We chose to start with a k means clustering alorgirthm as most of our data was n
 ### Encode Data
 
 ```{r, message=FALSE,warning=FALSE}
-set.seed(456292)
 
-
+data_f <- data
 
 #encod categorical columns
-dummies_model <- dummyVars(ï..ID ~ ., data=data)
+dummies_model <- dummyVars(ï..ID ~ ., data=data_f)
 
 # Create the dummy variables using predict. The Y variable (ï..ID) will not be present in encod
-encod <- predict(dummies_model, newdata = data)
+encod <- predict(dummies_model, newdata = data_f)
 
 # # Convert to dataframe
 data_encoded <- data.frame(encod)
@@ -353,7 +387,7 @@ normalize = function(x) {
 
 df = as.data.frame(lapply(df, normalize))
 
-summary(df)
+#summary(df)
 ```
 
 ### Find Optimal number of Clusters (K)
@@ -363,7 +397,6 @@ Before we run the K Mean algorithm we need to find the optimal K clusters. To fi
 ```{r, message=FALSE,warning=FALSE}
 #Find Optimal K using Elbow method
 
-df <- sample_n(data_encoded,30000)
 
 wssplot <- function(data, nc=15, seed=1234){
   wss <- (nrow(data)-1)*sum(apply(data,2,var))
@@ -384,14 +417,14 @@ Based on the Elbow method, we found the optinal number to be 6. Beyond 6, we see
 
 ### Build K Means Model 
 
-We are now able to create the K mean model, we are creating K = 6 clusters, we also use nstart = 5 to run the k means algorithm 5 times with random centroids each time and take the best result.
+We are now able to create the K mean model, we are creating K = 6 clusters, we also use nstart = 20 to run the k means algorithm 20 times with random centroids each time and take the best result.
 
 ```{r, message=FALSE,warning=FALSE}
 
 #set.seed(1234)
 set.seed(9897665)
 
-kmeans.result <- kmeans(df, centers=6,nstart = 30)
+kmeans.result <- kmeans(df, centers=4,nstart = 20)
 
 ```
 
@@ -409,17 +442,19 @@ Explain K Means Models ......
 #Describe Clusters
 
 #ClusterSize
-kmeans.result$size
+table(kmeans.result$cluster)
 
-#Cluster Center Attributes 
-kmeans.result$centers
 
 
 
 ```
 
+We can see Cluster 2 is by far the largest cluster over 2 times the next biggest, cluster 1 and 4 are roughly the same size.
+
 ### Numeric Variables
 
+
+We will first look at each cluster in regards to our numeric variables.
 
 ```{r, message=FALSE,warning=FALSE}
 
@@ -446,32 +481,53 @@ GROUP BY Cluster, Variable')
 a_mn$Cluster <- as.factor(a_mn$Cluster)
 
 #Plot clusters and variables
-x <- ggplot(data = a_mn, aes(x = variable, y = AvgValue, group = Cluster, fill = Cluster))
+
+#Age
+Age_d <- ggplot(data = a_mn[a_mn$variable %in% c("AGE"),], aes(x = variable, y = AvgValue, group = Cluster, fill = Cluster))
+Age_d <- Age_d + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+Age_d <- Age_d + theme_bw()
+Age_d <- Age_d +  coord_flip()
+
+Age_d
+
+#Ratios of Payment to Bill
+
+Paid <- ggplot(data = a_mn[a_mn$variable %in% c("Ratio_2","Ratio_3","Ratio_4","Ratio_5","Ratio_6"),], aes(x = variable, y = AvgValue, group = Cluster, fill = Cluster))
+Paid <- Paid + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+Paid <- Paid + theme_bw()
+Paid <- Paid +  coord_flip()
+
+Paid
+
+
+x <- ggplot(data = a_mn[!a_mn$variable %in% c("Ratio_2","Ratio_3","Ratio_4","Ratio_5","Ratio_6","AGE"),], aes(x = variable, y = AvgValue, group = Cluster, fill = Cluster))
 x <- x + geom_bar(stat = "identity", width = 0.5, position = "dodge")
 x <- x + theme_bw()
 x <- x +  coord_flip()
 
-
+x
 
 #Crosstab Data
 
 reshape2::dcast(a_mn, Cluster ~ variable, value.var = "AvgValue")
 
-x
+
 
 ```
 
-For each cluster we calculated the average value for each numeric variable.  From these average we are able to describe the clusters. We noticed that age is very similar for all clusters.  Cluster 1 has the highest average Limit Balance and the points also have the highest Bill Amount,but they dont always have the highest Payment amount.  Cluster 2 has the lowest average Bill Amount and the second lowest Limit Balance.  Cluster 6 has the Lowest Limit Balance but they have the second highest Bill Amount, they are also the third lowest in average payment.
+For each cluster we calculated the average value for each numeric variable.  From these average we are able to describe the clusters. 
 
-Cluster 1 - 
-Cluster 2 -
-Cluster 3-
-Cluster 4- High Balance / High Bill Amount / Pays Significant Amount 
-Cluster 5-
-Cluster 6-
+Cluster 1 - Lower Balance Limit / Lower Age / High Bill Amount / Smallest Payment Amount / On Avg. Pays Little of Bill
+Cluster 2 - Medium Balance Limit / Lower Age / Highest Bil Amount / Higher Payment Amount /  Pays small Amount of Bill
+Cluster 3-  Higher Balance Limit / Higher Age / Lowest Bill Amount / Highest Payment Amount / Pays most of Bill
+Cluster 4-  Highest Balance / Highest Age / Low Bill Amount / Medium Payment Amoont / Pays all of bill and more
 
 
-### Categorical Variables
+
+### Categorical Variables and Age
+
+Next we will look at each cluster with respect to the categorical variables and age.
+
 
 ```{r, message=FALSE,warning=FALSE}
 
@@ -484,29 +540,48 @@ GROUP BY Cluster, Variable,Value")
 #Factor Cluster varaible to be discrete
 a_mc$Cluster <- as.factor(a_mc$Cluster)
 
-#Plot clusters and variables
-edu <- ggplot(data = a_mc[a_mc$variable =="EDUCATION",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+#Creat Plot clusters and variables
+edu <- ggplot(data = a_mc[a_mc$variable =="EDUCATION",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "fill") + labs(title = "Credit ~ Education") + scale_fill_discrete(labels=c("Married","Single","Others"))
 
-sex <- ggplot(data = a_mc[a_mc$variable =="SEX",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+sex <- ggplot(data = a_mc[a_mc$variable =="SEX",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "fill") + labs(title = "Credit ~ SEX")
 
-mar <- ggplot(data = a_mc[a_mc$variable =="MARRIAGE",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "dodge")
+mar <- ggplot(data = a_mc[a_mc$variable =="MARRIAGE",], aes(x = Cluster, y = Freq, group = variable, fill = value)) + geom_bar(stat = "identity", width = 0.5, position = "fill") + labs(title = "Credit ~ Marital Status") + scale_fill_discrete(labels=c("Graduate School","University","High School","Others"))
+
 
 
 pay <- ggplot(data = a_mc[a_mc$variable=='PAY_0'|a_mc$variable=='PAY_2'|a_mc$variable=='PAY_3'|a_mc$variable=='PAY_4'|a_mc$variable=='PAY_5'|a_mc$variable=='PAY_6',], aes(x = Cluster, y = Freq, group = variable, fill = value))
 
-pay <- pay + geom_bar(stat = "identity", width = 0.5, position = "fill") + facet_grid(. ~ variable)  + labs(title = "Paided On Time: Cluster Analysis")
-pay <- pay +  coord_flip() + theme(axis.title.x=element_blank(),
-axis.text.x=element_blank(),
-axis.ticks.x=element_blank())
+pay <- pay + geom_bar(stat = "identity", width = 0.5, position = "fill") + facet_grid(. ~ variable)  + labs(title = "Credit Balance Paided: Cluster Analysis")
+pay <- pay +  coord_flip()+ theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
 
 
 
 
-grid.arrange(edu,sex,mar,nrow = 3)
-pay
+grid.arrange(edu,sex,mar,nrow = 3,top = "Cluster Analysis")
+pay + scale_fill_discrete(labels=c("Pay Ontime","No consumption","Revolving credit card","Pay Delay 1 Mth","Pay Delay 2 Mths","Pay Delay 3 Mths","Pay Delay 4 Mths","Pay Delay 5 Mths","Pay Delay 6 Mths","Pay Delay 7 Mths","Pay Delay 8 Mths"))
 
 
 ```
+
+For each cluster we calculated the frequency value for each categorical variable.  From these frequencies we are able to describe the clusters. 
+
+Cluster 1 
+  - Uses Revolving credit a little, but payment is frequently late by 2 months
+  - Around 51% Female
+  - Around 45% Graduate School, 55% University
+Cluster 2 
+  - Almost soley uses revolving credit
+  - Around 55% Female
+  - Around 40% Graduate School, 60% University
+Cluster 3 
+  -  Uses there credit a lot, and usually pays it ontime
+  - Around 60% Female
+  - 50% graduate School , 50% University
+Cluster 4
+  -  Does not use their credit card frequently, if thye do pays within 1 month
+  -  Almost 75% Female
+  - 50% graduate School , 50% University
+
 
 
 #### Visualize Model with PCA
@@ -529,7 +604,7 @@ p
 
 ```
 
-Looking at the vizualized data we can see the clusters are well formed and there is minimal overlap, the dclusters are almost fully homogeneous.
+Looking at the vizualized data we can see some of the clusters are well formed and there is minimal overlap, clusters 2,3 and 4 are almost fully homogeneous from each other. Cluster 1 seems to be overlapping with parts of all of the other clusters.
 
 
 ###Find Anomalies (Outliers)
@@ -537,6 +612,8 @@ Looking at the vizualized data we can see the clusters are well formed and there
 
 
 ####Anomaly Detection using K Means
+
+To find anomalies we first used the K means clusters centroids to calculate the distnace each point is away from there cluster centroid.  We then take the top 5 farthest points from each cluster centroid and plot them.
 
 ```{r, message=FALSE, warning=FALSE}
 
@@ -548,8 +625,17 @@ distances <- sqrt(rowSums((df - centers)^2))
 # Take the top 20 fartherest points from the cluster center
 outliers <- order(distances, decreasing=T)[1:20]
 
+dst <- as.data.frame(distances)
+
+dst$cluster <- kmeans.result$cluster
+dst$ID <- seq.int(nrow(data))
+
+outliers <- dst %>%
+  group_by(cluster) %>%
+  top_n(n = 5, wt = distances)
+
 #Plot Outliers
-p<-p + geom_point(data=df_out[outliers,],aes(x=PC1,y=PC2), colour="red", size=4)+ggtitle("PCA 6 Means Cluster with Outliers")
+p<-p + geom_point(data=df_out[outliers$ID,],aes(x=PC1,y=PC2), colour="red", size=2)+ggtitle("PCA Cluster Analysis with Outliers")
 
 p
 
@@ -564,14 +650,13 @@ p
 
 Another way to find outlier in unsupervised learning is by using the Local outlier
 Facotr alogorithm.  This alogrithm is similar to the previous one we used but differs
-by comparing local density,where locality is based on the k nearest neighbours.  The LOF
+by comparing local density where locality is based on the k nearest neighbours.  The LOF
 allows us to identify outliers in a data set tha would not be outliers in another area of the data set.
 
 
 ```{r, message=FALSE,warning=FALSE}
 
 #run LOF Model takes awhile 5 to 10 minutes
-outlier.scores <- lofactor(df,k=15)
 
 #Plotdensity of Outliers
 plot(density(outlier.scores))
@@ -612,10 +697,6 @@ km_outlier <- data_out[outliers,]
 
 table(km_outlier$cluster)
 
-
-km_a
-
-data[outliers_lof]
 ```
 
 ## Evaluation
