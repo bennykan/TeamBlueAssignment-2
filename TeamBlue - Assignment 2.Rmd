@@ -56,8 +56,6 @@ PAY_AMT5                   | Amount of previous payment in May, 2005 (NT dollar)
 PAY_AMT6                   | Amount of previous payment in April, 2005 (NT dollar)
 default.payment.next.month | Default payment (1=yes, 0=no)
 
-
-
 ## Data Exploration
 
 ### Load Packages
@@ -83,11 +81,10 @@ library(cluster)
 library(sqldf)
 ```
 ### Load Datasets
-Now that the packages are loaded, we can load in the dataset.
+Now that the packages are loaded, we can load in the dataset. Note that we converted the dataset file from the Excel to csv format.
 
 ```{r, message=FALSE}
 data <- read.csv("default of credit card clients.csv", header = TRUE, na= 'NA')
-
 
 ```
 
@@ -193,7 +190,7 @@ So from here we found out that there are high number of observations where peopl
 
 #####Numerical Features
 
-We would like to know the distribution of the numerical variables:
+We would like to know the distributions of the numerical variables:
 
 ######Age
 ```{r, message=FALSE,warning=FALSE}
