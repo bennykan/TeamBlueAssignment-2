@@ -510,6 +510,12 @@ Age_d <- Age_d +  coord_flip()
 
 Age_d
 
+```
+
+We can see that the average for all the clusters doesnt not vary too much.  They are all aroudn 35 to 36 years old.
+
+```{r, message=FALSE,warning=FALSE}
+
 #Ratios of Payment to Bill
 
 Paid <- ggplot(data = a_mn[a_mn$variable %in% c("Ratio_BILL_AUG","Ratio_BILL_JULY","Ratio_BILL_JUNE","Ratio_BILL_MAY","Ratio_BILL_APRIL"),], aes(x = variable, y = AvgValue, group = Cluster, fill = Cluster))
@@ -518,6 +524,13 @@ Paid <- Paid + theme_bw()
 Paid <- Paid +  coord_flip()
 
 Paid
+```
+
+
+We can see that cluster 3 and 4 tend to pay more of their bills then the other cluster. The only anonoly is in July for cluster 1, they had a spike in paying their bills.
+
+
+```{r, message=FALSE,warning=FALSE}
 
 
 x <- ggplot(data = a_mn[!a_mn$variable %in% c("Ratio_BILL_AUG","Ratio_BILL_JULY","Ratio_BILL_JUNE","Ratio_BILL_MAY","Ratio_BILL_APRIL","AGE"),], aes(x = variable, y = AvgValue, group = Cluster, fill = Cluster))
@@ -526,6 +539,14 @@ x <- x + theme_bw()
 x <- x +  coord_flip()
 
 x
+```
+
+From the above we can see that Cluster 1 and 2 have a significant higher averager bill then the other clusters.  Cluster 1 and 2 also have the lower limit balance. Cluster 2 and 3 have the highest average payment amount.
+
+
+```{r, message=FALSE,warning=FALSE}
+
+
 
 #Crosstab Data
 
@@ -651,63 +672,42 @@ p
 
 
 
-<!-- ####Anomaly Detection using Local Outlier Factor -->
+####Anomaly Detection using Local Outlier Factor 
+
+Another way to find outlier in unsupervised learning is by using the Local outlier -->
+Facotr alogorithm.  This alogrithm is similar to the previous one we used but differs -->
+by comparing local density where locality is based on the k nearest neighbours.  The LOF -->
+allows us to identify outliers in a data set tha would not be outliers in another area of the data set. -->
 
 
-<!-- Another way to find outlier in unsupervised learning is by using the Local outlier -->
-<!-- Facotr alogorithm.  This alogrithm is similar to the previous one we used but differs -->
-<!-- by comparing local density where locality is based on the k nearest neighbours.  The LOF -->
-<!-- allows us to identify outliers in a data set tha would not be outliers in another area of the data set. -->
+```{r, message=FALSE,warning=FALSE}
+
+#run LOF Model takes awhile 50 minutes 
+outlier.scores <- lofactor(df,k=50)
+#Plotdensity of Outliers
+plot(density(outlier.scores)) 
+
+#Plot outliers from LOF -->
+outliers_lof <- order(outlier.scores, decreasing=T)[1:20] 
 
 
-<!-- ```{r, message=FALSE,warning=FALSE} -->
-
-<!-- #run LOF Model takes awhile 5 to 10 minutes -->
-
-<!-- #Plotdensity of Outliers -->
-<!-- plot(density(outlier.scores)) -->
+p_lof<-ggplot(df_out,aes(x=PC1,y=PC2,color = as.factor(kmeans.result$cluster ) ))+geom_point()+theme+xlab(percentage[1]) + ylab(percentage[2]) + geom_point(data=df_out[outliers_lof,],aes(x=PC1,y=PC2), colour="red", size=3)+ggtitle("PCA LOF Outliers") 
 
 
-<!-- #Plot outliers from LOF -->
-<!-- outliers_lof <- order(outlier.scores, decreasing=T)[1:20] -->
+#compare K means outlier to LOF -->
+grid.arrange(p, p_lof, nrow = 2,ncol = 1) 
+
+```
 
 
-<!-- p_lof<-ggplot(df_out,aes(x=PC1,y=PC2,color = as.factor(kmeans.result$cluster ) ))+geom_point()+theme+xlab(percentage[1]) + ylab(percentage[2]) + geom_point(data=df_out[outliers_lof,],aes(x=PC1,y=PC2), colour="red", size=3)+ggtitle("PCA LOF Outliers") -->
+We cans see how different the outliers found by the LOF model is from the k means clusters model.  
 
-
-<!-- #compare K means outlier to LOF -->
-<!-- grid.arrange(p, p_lof, nrow = 2,ncol = 1) -->
-
-
-
-<!-- ``` -->
-
-
-
-
-
-
-
-<!-- #### Look at individual outliers -->
-
-<!-- ```{r, message=FALSE,warning=FALSE} -->
-
-
-<!-- #Add cluster column to data -->
-<!-- data_out <- data -->
-<!-- data_out$cluster <- kmeans.result$cluster -->
-
-<!-- km_outlier <- data_out[outliers,] -->
-
-
-
-<!-- table(km_outlier$cluster) -->
-
-<!-- ``` -->
 
 #Evaluation
 
 ### Assessment With Respect To Business Objectives
+
+#### K Means Model 
 Our business objective for this project is to load in the dataset and identify clients that are in the anomaly group which may indicate high risk of defaulting on their credit card debts. The clustering algorithm allows us to identify the top 20 clients that belong to the anomaly group:
 
 ```{r, message=FALSE, warning=FALSE}
@@ -718,12 +718,29 @@ kable(customer_anomaly,caption="List of Customers Exhibiting Anomaly Characteris
 
 ```
 
+#### LOF Model
+
+Below are the Top 20 anomalies found by the LOF model.
+
+```{r, message=FALSE, warning=FALSE}
+
+customer_anomaly_lof<-data[outliers_lof,!colnames(data) %in% c('ï..ID','Ratio_BILL_AUG','Ratio_BILL_JULY','Ratio_BILL_JUNE','Ratio_BILL_MAY','Ratio_BILL_APRIL')]
+customer_anomaly_lof$Cluster<-outliers$cluster
+kable(customer_anomaly_lof,caption="List of Customers Exhibiting LOF Anomaly Characteristics")
+
+```
+
+
 
 #Next Steps
 
-.
+Now that we have identified some anomalies, we will need to go and investiagte each record to see which model was more effective at indicating default.  Once we get some feedback the anomalies we can back and adjust the data / model to better indicate default risk.  One option is to include more historical data, currently we only go back 6 months, could going back farther find more trends that relate to default risk.
 
 
 #Deployment
+
+We will deploy the model by sending Senior management the list of anomalies we currently found, we have also developed a application that allows the team to upload different data in the same format and run the model we built to find outliers of the data uploaded.
+
+
 
 
