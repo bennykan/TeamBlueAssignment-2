@@ -25,10 +25,6 @@ library(sqldf)
 
 # Import Data
 
-
-
-
-
 # Define UI for application that draws a histogram
 ui <- fluidPage(
   headerPanel('Clustering Algorithm for Unsupervised Learning - Credit Card Client Anomaly Analysis'),
@@ -55,7 +51,7 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("Purpose & Instructions", verbatimTextOutput("Purpose")),
-        tabPanel("Oulier Plot", plotOutput("clusterPlot")), 
+        tabPanel("Outlier Plot", plotOutput("clusterPlot")), 
         tabPanel("Outlier List",DT::dataTableOutput("outlierList")),
         tabPanel("Summary", plotOutput("summary",height= "1000px",width = "800px")),
         tabPanel("Disclaimer", verbatimTextOutput("Disclaimer"))
