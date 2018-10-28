@@ -2,7 +2,6 @@
 
 # Import Library
 library(shiny)
-library(dplyr)
 library(reshape2)
 library(ggplot2)
 library(Hmisc)
@@ -20,6 +19,7 @@ library(rattle)
 library(readxl)
 library(cluster)
 library(DT)
+library(dplyr)
 
 # Import Data
 
@@ -139,36 +139,65 @@ server <- function(input, output) {
     p
   })
   
-  output$outlierList = DT::renderDataTable({
-    # kmeans.result <- kmeans(df, clusterSize(),nstart = 20)
+  output$outlierList <- DT::renderDataTable({
+    data <- filedata()
+    
+    if (is.null(data)) return(NULL)
+    
     # 
-    # par(mfrow=c(3,2))
-    # 
-    # df_pca <- prcomp(df)
-    # df_out <- as.data.frame(df_pca$x)
-    # 
-    # p<-ggplot(df_out,aes(x=PC1,y=PC2,color = as.factor(kmeans.result$cluster ) ))
-    # theme<-theme(panel.background = element_blank(),panel.border=element_rect(fill=NA),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),strip.background=element_blank(),axis.text.x=element_text(colour="black"),axis.text.y=element_text(colour="black"),axis.ticks=element_line(colour="black"),plot.margin=unit(c(1,1,1,1),"line"))
-    # percentage <- round(df_pca$sdev / sum(df_pca$sdev) * 100, 2)
-    # percentage <- paste( colnames(df_out), "(", paste( as.character(percentage), "%", ")", sep="") )
-    # 
-    # p<-p+geom_point()+theme+xlab(percentage[1]) + ylab(percentage[2])
-    # 
-    # centers <- kmeans.result$centers[kmeans.result$cluster, ]  
-    # 
-    # # Calculate distance each point is from the center of the cluster
-    # distances <- sqrt(rowSums((df - centers)^2))
-    # # Take the top 20 fartherest points from the cluster center
-    # outliers <- order(distances, decreasing=T)[1:10]
-    # 
-    # outliers
+    set.seed(456292)
+    
+    dummies_model <- dummyVars(ï..ID ~ ., data=data)
+    
+    encod <- predict(dummies_model, newdata = data)
+    
+    data_encoded <- data.frame(encod)
+    
+    df <- data_encoded
+    
+    normalize = function(x) {
+      return ((x - min(x)) / (max(x) - min(x)))
+    }
+    
+    df = as.data.frame(lapply(df, normalize))
+    
+    df <- sample_n(data_encoded,30000)
+    
+    
+    
+    kmeans.result <- kmeans(df, clusterSize(),nstart = 20)
+    
+    #Find the Center of each cluster
+    centers <- kmeans.result$centers[kmeans.result$cluster, ]  
+    
+    # Calculate distance each point is from the center of the cluster
+    distances <- sqrt(rowSums((df - centers)^2))
+    # Take the top 20 fartherest points from the cluster center
+    outliers <- order(distances, decreasing=T)[1:20]
+    
+    dst <- as.data.frame(distances)
+    
+    dst$cluster <- kmeans.result$cluster
+    dst$ID <- seq.int(nrow(data))
+    
+    outliers <- dst %>%
+      group_by(cluster) %>%
+      top_n(n = 5, wt = distances)
+    
+    customer_anomaly<-data[outliers$ID,!colnames(data) %in% c('ï..ID','Ratio_BILL_AUG','Ratio_BILL_JULY','Ratio_BILL_JUNE','Ratio_BILL_MAY','Ratio_BILL_APRIL')]
+    customer_anomaly$Cluster<-outliers$cluster
+    
+    customer_anomaly
+    
+    #kable(customer_anomaly,caption="List of Customers Exhibiting Anomaly Characteristics")
+    
   })  
   
   output$summary <- renderText({
     "Hello "
   })
   
-  output$disclaimer <- renderText({
+  output$Disclaimer <- renderText({
     "This App is jointly submitted by Tyler Blakeley, Benjamin Kan, Mohammad Islam, Avijeet Sing "
   })
 
