@@ -30,7 +30,7 @@ library(knitr)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-  headerPanel('Clustering Algorithm for Unupervised Learning - Credit Card Client Anomaly Analysis'),
+  headerPanel('Clustering Algorithm for Unsupervised Learning - Credit Card Client Anomaly Analysis'),
    # Application title
    # titlePanel("Old Faithful Geyser Data"),
   
@@ -55,7 +55,7 @@ ui <- fluidPage(
         tabsetPanel(
           tabPanel("Oulier Plot", plotOutput("clusterPlot")), 
           tabPanel("Outlier List",DT::dataTableOutput("outlierList")),
-          tabPanel("Summary", verbatimTextOutput("summary")),
+          tabPanel("Purpose & Instructions", verbatimTextOutput("summary")),
           tabPanel("Disclaimer", verbatimTextOutput("Disclaimer"))
         )
          
@@ -195,11 +195,19 @@ server <- function(input, output) {
   })  
   
   output$summary <- renderText({
-    "Hello "
+    "The purpose of this app is to identify list of customers who display certain
+characteristics of anomalies. We have deployed the model in an application format 
+in which the users can upload the data file with a specified format. The application 
+is tailored to the Retail Credit Risk and Collections departments who have the role 
+to investigate credit card clients who have higher risk of default. 
+The users can specify the number of clusters and number of outliers they wish to see. 
+Once these parameters are selected, the application will return a plot showing the 
+outliers and the list of corresponding customers and their demographics as well as 
+credit card bill and payment balances."
   })
   
   output$Disclaimer <- renderText({
-    "This App is jointly submitted by Tyler Blakeley, Benjamin Kan, Mohammad Islam, Avijeet Sing "
+    "This App is jointly submitted by Tyler Blakeley, Benjamin Kan, Mohammad Islam, Avijeet Singh"
   })
 
 }

@@ -17,15 +17,19 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 ```
+
 # Business Understanding
+
 We work at the Retail Credit Risk Analytics department at the Bank of Taiwan. Recently, there have been increasing credit card debt defaults in our bank. Senior Management would like our department to develop a machine learning algorithm to find anomalies in the data that we hope will show early warning signs of default. This will allow the Retail Credit Risk and Collections departments to act early by monitoring these cleints' credit card limits to find ways to minimize the losses. We would also like to find out which demographics are in the anomaly group which would indicate high susceptiblility of defaults. The Management instructed us to use data from the third parties to build the algorithms as proof-of-concepts before we use our own data. They would also like us to build a user-friendly app to allow them to load in the dataset and identify clients that are in the anomaly group which may indicate high risk of defaulting on their credit card debts.        
 
 # Data Understanding
 
 ## Data Source and Collection
+
 We sourced the third party credit card data from Kaggle (https://www.kaggle.com/uciml/default-of-credit-card-clients-dataset). This dataset contains information on default payments, demographic factors, credit data, history of payment, and bill statements of credit card clients in Taiwan from April 2005 to September 2005. As mentioned above, the goal is to identify a group of customers who exhibit abnormal behaviour comparing with the rest of the data. We assume that abnormal credit behaviour would lead to high default risks. Note that the dataset has already been anonymized to protect the customers' identities.
 
 ## Data Description
+
 In the dataset, there are 25 variables:
 
 Variable Name              | Description
@@ -59,6 +63,7 @@ default.payment.next.month | Default payment (1=yes, 0=no)
 ## Data Exploration
 
 ### Load Packages
+
 ```{r, message=FALSE,warning=FALSE}
 #import packages;
 library(dplyr)
@@ -81,7 +86,9 @@ library(cluster)
 library(sqldf)
 library(knitr)
 ```
+
 ### Load Datasets
+
 Now that the packages are loaded, we can load in the dataset. Note that we converted the dataset file from the Excel to csv format.
 
 ```{r, message=FALSE}
@@ -96,7 +103,6 @@ str(data)
 summary(data)
 
 ```
-
 
 ### Renaming Categorical Attributes and Column Labels
 
@@ -172,19 +178,23 @@ str(data)
 Now that we have appropriate variables with the desired data types with the dataset being made unlabelled, we can move on to perform data analyses. 
 
 ###Data Analysis
+
 Now we explore the data. We can divide the analysis into two categories:
 * Univariate Exploration
 * Bivariate Exploration
 
 ####Univariate Exploration
+
 We can further divide this into two categories for data exploration:
 * Categorical Features
 * Numerical Features
 
 #####Categorical Features
+
 Let us visualize the categorical data.
 
 ######SEX, EDUCATION & MARRIAGE
+
 ```{r, message=FALSE,warning=FALSE}
 p1 = ggplot(data,aes(data$SEX))+geom_bar(fill="steelblue")+scale_x_discrete("Sex")+scale_y_continuous("No. of Observations")
 p2 = ggplot(data,aes(data$EDUCATION))+geom_bar(fill="steelblue")+scale_x_discrete("Education")+scale_y_continuous("No. of Observations")
@@ -198,6 +208,7 @@ From the above graphs we made the following observations:
 3. A majority of the customers is single.
 
 ######Payment Status
+
 According to the description, PAY_x is a set of categorical variables with the levels:
  -1   = pay duly
   1   = payment delay for one month
@@ -228,6 +239,7 @@ So from here we found out that there are high number of observations where peopl
 We would like to explore the distributions of the numerical variables:
 
 ######Age
+
 ```{r, message=FALSE,warning=FALSE}
 p10 = ggplot(data, aes(data$AGE)) + geom_histogram(binwidth = 1,colour="black",fill="white")+  scale_x_continuous("Age")+scale_y_continuous("Observations Count")+labs(title = "Histogram")
 p11 = ggplot(data, aes(,data$AGE)) + geom_boxplot(fill = "white")+  scale_y_continuous("Age")+scale_x_continuous("")+labs(title="Boxplot")
@@ -237,6 +249,7 @@ grid.arrange(p10,p11,nrow =1,top="AGE DISTRIBUTION AND OUTLIERS" )
 As we can see above, the use of credit cards concentrates on younger age (< 40) with the average age of `r mean(data$AGE)`. 
 
 ######Limit of Balance
+
 Lets explore the distribution and the outliers for the limit of balance.
 
 ```{r, message=FALSE,warning=FALSE}
@@ -263,6 +276,7 @@ NROW(LIMIT_BAL_OUT)
 There are 79 accounts whose limits exceed 600K. Our credit risk monitoring team has a special monitoring program to track these accounts because we could expose to larger losses when these customers fully draw down the limits and then default on their debts.
 
 ######Average Billing Amount & Payment Amount
+
 As for the billing balances and payment amounts, since we have 6 months of data, analyzing the balances for each month might not add much value in the data exploring exercise. We decided to take the averages of the billing amounts and payment amounts across the 6-month period for each account and then observe the distributions. We will also add two columns to populate the mean values of bill and payment amounts respectively.
 
 ```{r, message=FALSE,warning=FALSE}
@@ -291,6 +305,7 @@ grid.arrange(p18,p30,ncol=2,top="Boxplot for Avergae Bill & Payment amount for a
 Once again, the boxplots verify our observations above.
 
 ####Bivariate Exploration
+
 We will look at the following relationships in the dataset:
 
 * Marriage Status and Repayment Status
@@ -298,6 +313,7 @@ We will look at the following relationships in the dataset:
 * Education and Repayment Status
 
 #####Marriage status and Repayment Status
+
 We are using the repayment data as of Seotember 2005 for us to draw the insights.
 
 Let us take a look at the relationship between marriage status and re-payment status as of September 2005:
@@ -333,7 +349,6 @@ grid.arrange(b1,b2,b3,b4,b5,nrow = 3)
 
 Just as we suspected! The males are more likely to be behind their credit card bills.
 
-
 #####Education and Repayment Status
 
 ```{r, message=FALSE,warning=FALSE}
@@ -347,6 +362,7 @@ We observe that most customers who are behind their credit card payments have at
 #Data Preparation
 
 ##Check for Missing Values
+
 Now that we have explored the original data lets look for missing values.
 ```{r, message=FALSE,warning=FALSE}
 sum(is.na.data.frame(data))
@@ -354,6 +370,7 @@ sum(is.na.data.frame(data))
 So we can see from above that we have 0 missing values so we don't have to fill in missing values.
 
 ##Data Cleaning
+
 Earlier we had introduced two new attributes (billmean & paymean) for our data explorations. We will now remove them as we don't need them in our modelling work.
 
 ```{r, message=FALSE,warning=FALSE}
@@ -388,7 +405,7 @@ data$Ratio_BILL_APRIL <- ifelse(data$PAY_AMT_MAY==0,0,ifelse(data$BILL_AMT_APRIL
 
 ##Select Modelling Technique
 
-We chose to start with a K means clustering alorgirthm as most of our data are numeric. The first step for running the alogirthm is to make all the categorical variables into numeric by encoding them.  We chose to implement one hot encoding because our variables are nominal and not ordinal. 
+We chose to start with a K-means clustering alorgirthm as most of our data are numeric. The first step for running the alogirthm is to make all the categorical variables into numeric by encoding them.  We chose to implement one hot encoding because our variables are nominal and not ordinal. 
 
 ##Data Encoding
 
@@ -407,11 +424,11 @@ data_encoded <- data.frame(encod)
 
 ```
 
-Now that the data is encoded and all variables are numeric, we can implement the K means algorithm.  The K means algorithm works by creating K cluster.  Each cluster is based on feature similarity.  The alogirthm starts by randomly picking K centroids, then the alogirthm iterates through each point and assigns it to the nearest cluster based a distance formula. (ex: Euclidean).  After each point has been assigned a cluster, the centroids are re-calculated by taking the mean distances of all data points in the clusters, next the points are reclassifed again until a stopping criteria is met. (No points change clusters or the mean of all data points in the cluster is minimized.)
+Now that the data is encoded and all variables are numeric, we can implement the K-means algorithm.  The K-means algorithm works by creating K cluster.  Each cluster is based on feature similarity.  The alogirthm starts by randomly picking K centroids, then the alogirthm iterates through each point and assigns it to the nearest cluster based a distance formula. (ex: Euclidean).  After each point has been assigned a cluster, the centroids are re-calculated by taking the mean distances of all data points in the clusters, next the points are reclassifed again until a stopping criteria is met. (No points change clusters or the mean of all data points in the cluster is minimized.)
 
 ##Data Normalization
 
-Since the K means algorithm using distance to find the nearest point we need to ensure all the variables are on the same range.  We do this by normalizing the data.
+Since the K-means algorithm using distance to find the nearest point we need to ensure all the variables are on the same range.  We do this by normalizing the data.
 
 ```{r, message=FALSE,warning=FALSE}
 df <- data_encoded
@@ -425,7 +442,7 @@ df = as.data.frame(lapply(df, normalize))
 
 ##Finding Optimal Number of Clusters (K)
 
-Before we run the K Mean algorithm we need to find the optimal K clusters. To find the optimal number of clusters we used the Elbow method. The elbow method finds the optimal K value by running mulptiple K Means for K from 1 to N and calculateing the Sum of Squared errors (SSE).  We then plot each SSE for each K, we then chose an optimal value of K such that it has a low SSE but further increase of K would make little improvement to the SSE. That K value would be the elbow point of the plot.
+Before we run the K Mean algorithm we need to find the optimal K clusters. To find the optimal number of clusters we used the Elbow method. The elbow method finds the optimal K value by running mulptiple K-Means for K from 1 to N and calculateing the Sum of Squared errors (SSE).  We then plot each SSE for each K, we then chose an optimal value of K such that it has a low SSE but further increase of K would make little improvement to the SSE. That K value would be the elbow point of the plot.
 
 ```{r, message=FALSE,warning=FALSE}
 #Find Optimal K using Elbow method
@@ -458,7 +475,6 @@ kmeans.result <- kmeans(df, centers=4, nstart=15, iter.max = 100)
 
 ## K-Means Model Results
 
-
 ### Cluster Assessments
 By now, each account is assigned to a cluster number. The table below displays the number of accounts assigned to the corresponding clusters.
 
@@ -472,7 +488,6 @@ table(kmeans.result$cluster)
 We can see Cluster 2 is by far the largest cluster over 2 times the next biggest, cluster 1 and 4 are roughly the same size.
 
 ### Numeric Variables
-
 
 We will first look at each cluster in regards to our numeric variables.
 
@@ -526,9 +541,7 @@ Paid <- Paid +  coord_flip()
 Paid
 ```
 
-
 We can see that cluster 3 and 4 tend to pay more of their bills then the other cluster. The only anonoly is in July for cluster 1, they had a spike in paying their bills.
-
 
 ```{r, message=FALSE,warning=FALSE}
 
@@ -542,7 +555,6 @@ x
 ```
 
 From the above we can see that Cluster 1 and 2 have a significant higher averager bill then the other clusters.  Cluster 1 and 2 also have the lower limit balance. Cluster 2 and 3 have the highest average payment amount.
-
 
 ```{r, message=FALSE,warning=FALSE}
 
@@ -563,11 +575,9 @@ For each cluster we calculated the average value for each numeric variable.  Fro
 * Cluster 3 - Higher Balance Limit / Higher Age / Lowest Bill Amount / Highest Payment Amount / Pays most of Bill
 * Cluster 4 - Highest Balance / Highest Age / Low Bill Amount / Medium Payment Amoont / Pays all of bill and more
 
-
 ### Categorical Variables and Age
 
 Next we will look at each cluster with respect to the categorical variables and age.
-
 
 ```{r, message=FALSE,warning=FALSE}
 #Aggregate Freqeuncy for each cluster and categorical variable
@@ -633,12 +643,11 @@ p
 
 ```
 
-Looking at the vizualized data we can see some of the clusters are well formed and there is minimal overlap, clusters 2,3 and 4 are almost fully homogeneous from each other. Cluster 1 seems to be overlapping with parts of all of the other clusters.
-
+Looking at the vizualized data we can see some of the clusters are well formed and there is minimal overlap, clusters 2,3 and 4 are almost fully homogeneous from each other. Cluster 1 seems to be overlapping with parts of all the other clusters.
 
 ###Finding Anomalies (Outliers)
 
-####Anomaly Detection using K Means
+####Anomaly Detection using K-Means
 
 To find anomalies we first used the K means clusters centroids to calculate the distnace each point is away from there cluster centroid.  We then take the top 5 farthest points from each cluster centroid and plot them.
 
@@ -666,18 +675,14 @@ p<-p + geom_point(data=df_out[outliers$ID,],aes(x=PC1,y=PC2), colour="red", size
 
 p
 
-
-
 ```
 
+####Anomaly Detection using Local Outlier Factor (LOF)
 
-
-####Anomaly Detection using Local Outlier Factor 
-
-Another way to find outlier in unsupervised learning is by using the Local outlier -->
+Another way to find outlier in unsupervised learning is by using the Local Outlier -->
 Facotr alogorithm.  This alogrithm is similar to the previous one we used but differs -->
 by comparing local density where locality is based on the k nearest neighbours.  The LOF -->
-allows us to identify outliers in a data set tha would not be outliers in another area of the data set. -->
+allows us to identify outliers in a data set that would not be outliers in another area of the data set. -->
 
 
 ```{r, message=FALSE,warning=FALSE}
@@ -694,53 +699,49 @@ outliers_lof <- order(outlier.scores, decreasing=T)[1:20]
 p_lof<-ggplot(df_out,aes(x=PC1,y=PC2,color = as.factor(kmeans.result$cluster ) ))+geom_point()+theme+xlab(percentage[1]) + ylab(percentage[2]) + geom_point(data=df_out[outliers_lof,],aes(x=PC1,y=PC2), colour="red", size=3)+ggtitle("PCA LOF Outliers") 
 
 
-#compare K means outlier to LOF -->
+#compare K-means outlier to LOF -->
 grid.arrange(p, p_lof, nrow = 2,ncol = 1) 
 
 ```
 
-
-We cans see how different the outliers found by the LOF model is from the k means clusters model.  
-
+We can see how different the outliers found by the LOF model is from the k-means clusters model.  
 
 #Evaluation
 
 ### Assessment With Respect To Business Objectives
 
-#### K Means Model 
+#### K-Means Model 
 Our business objective for this project is to load in the dataset and identify clients that are in the anomaly group which may indicate high risk of defaulting on their credit card debts. The clustering algorithm allows us to identify the top 20 clients that belong to the anomaly group:
 
 ```{r, message=FALSE, warning=FALSE}
 
 customer_anomaly<-data[outliers$ID,!colnames(data) %in% c('ï..ID','Ratio_BILL_AUG','Ratio_BILL_JULY','Ratio_BILL_JUNE','Ratio_BILL_MAY','Ratio_BILL_APRIL')]
 customer_anomaly$Cluster<-outliers$cluster
-kable(customer_anomaly,caption="List of Customers Exhibiting Anomaly Characteristics")
+kable(customer_anomaly,caption="List of Customers Exhibiting Anomaly Characteristics using the K-Means Model")
 
 ```
 
 #### LOF Model
 
-Below are the Top 20 anomalies found by the LOF model.
+We have also run the LOF model and below are the Top 20 anomalies found by the LOF model.
 
 ```{r, message=FALSE, warning=FALSE}
 
 customer_anomaly_lof<-data[outliers_lof,!colnames(data) %in% c('ï..ID','Ratio_BILL_AUG','Ratio_BILL_JULY','Ratio_BILL_JUNE','Ratio_BILL_MAY','Ratio_BILL_APRIL')]
 customer_anomaly_lof$Cluster<-outliers$cluster
-kable(customer_anomaly_lof,caption="List of Customers Exhibiting LOF Anomaly Characteristics")
+kable(customer_anomaly_lof,caption="List of Customers Exhibiting Anomaly Characteristics using the LOF Model")
 
 ```
 
-
-
 #Next Steps
 
-Now that we have identified some anomalies, we will need to go and investiagte each record to see which model was more effective at indicating default.  Once we get some feedback the anomalies we can back and adjust the data / model to better indicate default risk.  One option is to include more historical data, currently we only go back 6 months, could going back farther find more trends that relate to default risk.
-
+Now that we have identified some anomalies, we will need to go and investigate each record to see which model was more effective at indicating default.  Once we get some feedback on the anomalies from the Retail Credit Risk and Collections departments, we can go back and adjust the data / model to better indicate default risks.  One option is to include more historical data as currently we only go back 6 months. More historical data could help us identify more accurate outliers.
 
 #Deployment
 
-We will deploy the model by sending Senior management the list of anomalies we currently found, we have also developed a application that allows the team to upload different data in the same format and run the model we built to find outliers of the data uploaded.
+We have deployed the model in an application format in which the users can upload the data file with a specified format. The application is tailored to the Retail Credit Risk and Collections departments who have the role to investigate credit card clients who have higher risk of default. The application can also be used by Senior Management as proof-of-concept. 
 
+The users can specify the number of clusters and number of outliers they wish to see. Once these parameters are selected, the application will return a plot showing the outliers and the list of corresponding customers and their demographics as well as credit card bill and payment balances. 
 
 
 
