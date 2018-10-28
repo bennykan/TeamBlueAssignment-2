@@ -20,6 +20,7 @@ library(readxl)
 library(cluster)
 library(DT)
 library(dplyr)
+library(knitr)
 
 # Import Data
 
