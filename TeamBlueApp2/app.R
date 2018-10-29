@@ -83,8 +83,7 @@ server <- function(input, output) {
   
   outlierSize <- reactive({input$outliers })
   
-  output$clusterPlot <- renderPlot({
-    
+  currentData <- reactive({
     
     data <- filedata()
     
@@ -150,7 +149,17 @@ server <- function(input, output) {
     
     #browser()
     
-    kmeans.result <- kmeans(df, clusterSize(),nstart = 20)
+    kmeans.result <- kmeans(df, input$clusters,nstart = 20)
+    
+    
+    kmeans.result
+  })
+  
+  output$clusterPlot <- renderPlot({
+    
+    kmeans.result <- currentData()
+    
+    if (is.null(kmeans.result)) return(NULL)
     
     par(mfrow=c(3,2))
     
@@ -186,35 +195,14 @@ server <- function(input, output) {
   })
   
   output$outlierList <- DT::renderDataTable({
+    
     data <- filedata()
     
     if (is.null(data)) return(NULL)
     
-    # 
+    kmeans.result <- currentData()
     
-    data$Ratio_BILL_AUG <- ifelse(data$PAY_AMT_SEPT==0,0,ifelse(data$BILL_AMT_AUG <=0,1,data$PAY_AMT_SEPT/data$BILL_AMT_AUG))
-    data$Ratio_BILL_JULY <- ifelse(data$PAY_AMT_AUG==0,0,ifelse(data$BILL_AMT_JULY <=0,1,data$PAY_AMT_AUG/data$BILL_AMT_JULY))
-    data$Ratio_BILL_JUNE <- ifelse(data$PAY_AMT_JULY==0,0,ifelse(data$BILL_AMT_JUNE <=0,1,data$PAY_AMT_JULY/data$BILL_AMT_JUNE))
-    data$Ratio_BILL_MAY <- ifelse(data$PAY_AMT_JUNE==0,0,ifelse(data$BILL_AMT_MAY <=0,1,data$PAY_AMT_JUNE/data$BILL_AMT_MAY))
-    data$Ratio_BILL_APRIL <- ifelse(data$PAY_AMT_MAY==0,0,ifelse(data$BILL_AMT_APRIL <=0,1,data$PAY_AMT_MAY/data$BILL_AMT_APRIL))
-    set.seed(456292)
-    
-    dummies_model <- dummyVars(ï..ID ~ ., data=data)
-    
-    encod <- predict(dummies_model, newdata = data)
-    
-    data_encoded <- data.frame(encod)
-    
-    df <- data_encoded
-    
-    normalize = function(x) {
-      return ((x - min(x)) / (max(x) - min(x)))
-    }
-    
-    df = as.data.frame(lapply(df, normalize))
-    
-    
-    kmeans.result <- kmeans(df, clusterSize(),nstart = 5)
+    if (is.null(kmeans.result)) return(NULL)
     
     #Find the Center of each cluster
     centers <- kmeans.result$centers[kmeans.result$cluster, ]  
@@ -222,7 +210,7 @@ server <- function(input, output) {
     # Calculate distance each point is from the center of the cluster
     distances <- sqrt(rowSums((df - centers)^2))
     # Take the top 20 fartherest points from the cluster center
-    
+    outliers <- order(distances, decreasing=T)[1:20]
     
     dst <- as.data.frame(distances)
     
@@ -231,7 +219,7 @@ server <- function(input, output) {
     
     outliers <- dst %>%
       group_by(cluster) %>%
-      top_n(n = outlierSize(), wt = distances)
+      top_n(n = 5, wt = distances)
     
     customer_anomaly<-data[outliers$ID,!colnames(data) %in% c('ï..ID','Ratio_BILL_AUG','Ratio_BILL_JULY','Ratio_BILL_JUNE','Ratio_BILL_MAY','Ratio_BILL_APRIL')]
     customer_anomaly$Cluster<-outliers$cluster
@@ -246,7 +234,9 @@ server <- function(input, output) {
     data <- filedata()
     if (is.null(data)) return(NULL)
     
+    kmeans.result <- currentData()
     
+    if (is.null(kmeans.result)) return(NULL)
     
     data <- data[,!colnames(data) %in% c("default payment next month")]
     data$SEX<-ifelse(data$SEX==1,"M","F")
@@ -306,7 +296,7 @@ server <- function(input, output) {
     
     #browser()
     
-    kmeans.result <- kmeans(df, clusterSize(),nstart = 20)
+    # kmeans.result <- kmeans(df, clusterSize(),nstart = 20)
     nn <- data[,!colnames(data) %in% c('ï..ID','SEX','EDUCATION','MARRIAGE','PAY_STS_SEPT','PAY_STS_AUG','PAY_STS_JULY','PAY_STS_JUNE','PAY_STS_MAY','PAY_STS_APRIL','ï..ID')]
     cc <- data[,colnames(data) %in% c('SEX','EDUCATION','MARRIAGE','PAY_STS_SEPT','PAY_STS_AUG','PAY_STS_JULY','PAY_STS_JUNE','PAY_STS_MAY','PAY_STS_APRIL','ï..ID','AGE')]
     
