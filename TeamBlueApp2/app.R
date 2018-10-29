@@ -51,7 +51,7 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("Purpose & Instructions", verbatimTextOutput("Purpose")),
-        tabPanel("Outlier Plot", plotOutput("clusterPlot")), 
+        tabPanel("Outlier Plot", plotOutput("clusterPlot",height= "800px",width = "1000px")), 
         tabPanel("Outlier List",DT::dataTableOutput("outlierList")),
         tabPanel("Summary", plotOutput("summary",height= "1000px",width = "800px")),
         tabPanel("Disclaimer", verbatimTextOutput("Disclaimer"))
@@ -65,32 +65,15 @@ ui <- fluidPage(
 # Define server logic required to draw a histogram
 server <- function(input, output) {
   
-  #  kmeans.result <- reactive({
-  #   kmeans(df, input$clusters, nstart = 20)
-  #})
+
   
   #This function is repsonsible for loading in the selected file
   filedata <- reactive({
     infile <- input$datafile
-    if (is.null(infile)) {
+    if (is.null(infile)) return(NULL)
       # User has not uploaded a file yet
-      return(NULL)
-    }
-    read.csv(infile$datapath)
-  })
   
-  clusterSize <- reactive({input$clusters })
-  
-  outlierSize <- reactive({input$outliers })
-  
-  currentData <- reactive({
-    
-    data <- filedata()
-    
-    if (is.null(data)) return(NULL)
-    
-    
-    
+    data<- read.csv(infile$datapath)
     data <- data[,!colnames(data) %in% c("default payment next month")]
     data$SEX<-ifelse(data$SEX==1,"M","F")
     
@@ -130,34 +113,52 @@ server <- function(input, output) {
     data$Ratio_BILL_APRIL <- ifelse(data$PAY_AMT_MAY==0,0,ifelse(data$BILL_AMT_APRIL <=0,1,data$PAY_AMT_MAY/data$BILL_AMT_APRIL))
     set.seed(456292)
     
+    data
     
-    dummies_model <- dummyVars(ï..ID ~ ., data=data)
     
-    encod <- predict(dummies_model, newdata = data)
+    
+  })   
+  
+  encoded_data <- reactive({
+  
+    currentData <- filedata()
+    dummies_model <- dummyVars(ID ~ ., data=currentData)
+    
+    encod <- predict(dummies_model, newdata = currentData)
     
     data_encoded <- data.frame(encod)
     
     df <- data_encoded
-    
+    df
     normalize = function(x) {
       return ((x - min(x)) / (max(x) - min(x)))
     }
     
     df = as.data.frame(lapply(df, normalize))
+    df
     
+
+  })
     
+  
+  clusterSize <- reactive({input$clusters })
+  
+  outlierSize <- reactive({input$outliers })
+  
+  
+  
+  kmeansdata <- reactive({kmeans(encoded_data(), input$clusters,nstart = 20) })
+
+  output$clusterPlot <- renderPlot({
+    
+    currentData <- filedata()
+
+    df<- encoded_data()
     
     #browser()
     
-    kmeans.result <- kmeans(df, input$clusters,nstart = 20)
-    
-    
-    kmeans.result
-  })
-  
-  output$clusterPlot <- renderPlot({
-    
-    kmeans.result <- currentData()
+    kmeans.result <-  kmeansdata()
+
     
     if (is.null(kmeans.result)) return(NULL)
     
@@ -182,7 +183,7 @@ server <- function(input, output) {
     dst <- as.data.frame(distances)
     
     dst$cluster <- kmeans.result$cluster
-    dst$ID <- seq.int(nrow(data))
+    dst$ID <- seq.int(nrow(currentData))
     
     outliers <- dst %>%
       group_by(cluster) %>%
@@ -196,11 +197,15 @@ server <- function(input, output) {
   
   output$outlierList <- DT::renderDataTable({
     
-    data <- filedata()
+    currentData <- filedata()
     
-    if (is.null(data)) return(NULL)
+    df<- encoded_data()
     
-    kmeans.result <- currentData()
+    #browser()
+    
+    kmeans.result <-  kmeansdata()
+    
+    
     
     if (is.null(kmeans.result)) return(NULL)
     
@@ -215,13 +220,13 @@ server <- function(input, output) {
     dst <- as.data.frame(distances)
     
     dst$cluster <- kmeans.result$cluster
-    dst$ID <- seq.int(nrow(data))
+    dst$ID <- seq.int(nrow(currentData))
     
     outliers <- dst %>%
       group_by(cluster) %>%
-      top_n(n = 5, wt = distances)
+      top_n(n = outlierSize(), wt = distances)
     
-    customer_anomaly<-data[outliers$ID,!colnames(data) %in% c('ï..ID','Ratio_BILL_AUG','Ratio_BILL_JULY','Ratio_BILL_JUNE','Ratio_BILL_MAY','Ratio_BILL_APRIL')]
+    customer_anomaly<-currentData[outliers$ID,!colnames(currentData) %in% c('ID','Ratio_BILL_AUG','Ratio_BILL_JULY','Ratio_BILL_JUNE','Ratio_BILL_MAY','Ratio_BILL_APRIL')]
     customer_anomaly$Cluster<-outliers$cluster
     
     customer_anomaly
@@ -231,74 +236,21 @@ server <- function(input, output) {
   })  
   
   output$summary <- renderPlot({
-    data <- filedata()
-    if (is.null(data)) return(NULL)
+    currentData <- filedata()
     
-    kmeans.result <- currentData()
-    
-    if (is.null(kmeans.result)) return(NULL)
-    
-    data <- data[,!colnames(data) %in% c("default payment next month")]
-    data$SEX<-ifelse(data$SEX==1,"M","F")
-    
-    data$EDUCATION <- ifelse(data$EDUCATION==0|data$EDUCATION==5|data$EDUCATION==6,5,data$EDUCATION)
-    
-    data$MARRIAGE <- ifelse(data$MARRIAGE==0,3,data$MARRIAGE)
-    
-    colnames(data)[colnames(data)=="PAY_0"] <- "PAY_STS_SEPT"
-    colnames(data)[colnames(data)=="PAY_2"] <- "PAY_STS_AUG"
-    colnames(data)[colnames(data)=="PAY_3"] <- "PAY_STS_JULY"
-    colnames(data)[colnames(data)=="PAY_4"] <- "PAY_STS_JUNE"
-    colnames(data)[colnames(data)=="PAY_5"] <- "PAY_STS_MAY"
-    colnames(data)[colnames(data)=="PAY_6"] <- "PAY_STS_APRIL"
-    colnames(data)[colnames(data)=="BILL_AMT1"] <- "BILL_AMT_SEPT"
-    colnames(data)[colnames(data)=="BILL_AMT2"] <- "BILL_AMT_AUG"
-    colnames(data)[colnames(data)=="BILL_AMT3"] <- "BILL_AMT_JULY"
-    colnames(data)[colnames(data)=="BILL_AMT4"] <- "BILL_AMT_JUNE"
-    colnames(data)[colnames(data)=="BILL_AMT5"] <- "BILL_AMT_MAY"
-    colnames(data)[colnames(data)=="BILL_AMT6"] <- "BILL_AMT_APRIL"
-    colnames(data)[colnames(data)=="PAY_AMT1"] <- "PAY_AMT_SEPT"
-    colnames(data)[colnames(data)=="PAY_AMT2"] <- "PAY_AMT_AUG"
-    colnames(data)[colnames(data)=="PAY_AMT3"] <- "PAY_AMT_JULY"
-    colnames(data)[colnames(data)=="PAY_AMT4"] <- "PAY_AMT_JUNE"
-    colnames(data)[colnames(data)=="PAY_AMT5"] <- "PAY_AMT_MAY"
-    colnames(data)[colnames(data)=="PAY_AMT6"] <- "PAY_AMT_APRIL"
-    
-    factor_VARS <- c('SEX','EDUCATION','MARRIAGE','PAY_STS_SEPT','PAY_STS_AUG','PAY_STS_JULY','PAY_STS_JUNE','PAY_STS_MAY','PAY_STS_APRIL')
-    
-    data[factor_VARS]<- lapply(data[factor_VARS],function(x) as.factor(x))
-    
-    
-    data$Ratio_BILL_AUG <- ifelse(data$PAY_AMT_SEPT==0,0,ifelse(data$BILL_AMT_AUG <=0,1,data$PAY_AMT_SEPT/data$BILL_AMT_AUG))
-    data$Ratio_BILL_JULY <- ifelse(data$PAY_AMT_AUG==0,0,ifelse(data$BILL_AMT_JULY <=0,1,data$PAY_AMT_AUG/data$BILL_AMT_JULY))
-    data$Ratio_BILL_JUNE <- ifelse(data$PAY_AMT_JULY==0,0,ifelse(data$BILL_AMT_JUNE <=0,1,data$PAY_AMT_JULY/data$BILL_AMT_JUNE))
-    data$Ratio_BILL_MAY <- ifelse(data$PAY_AMT_JUNE==0,0,ifelse(data$BILL_AMT_MAY <=0,1,data$PAY_AMT_JUNE/data$BILL_AMT_MAY))
-    data$Ratio_BILL_APRIL <- ifelse(data$PAY_AMT_MAY==0,0,ifelse(data$BILL_AMT_APRIL <=0,1,data$PAY_AMT_MAY/data$BILL_AMT_APRIL))
-    
-    set.seed(456292)
-    
-    
-    dummies_model <- dummyVars(ï..ID ~ ., data=data)
-    
-    encod <- predict(dummies_model, newdata = data)
-    
-    data_encoded <- data.frame(encod)
-    
-    df <- data_encoded
-    
-    normalize = function(x) {
-      return ((x - min(x)) / (max(x) - min(x)))
-    }
-    
-    df = as.data.frame(lapply(df, normalize))
-    
-    
+    df<- encoded_data()
     
     #browser()
     
+    kmeans.result <-  kmeansdata()
+    
+    if (is.null(kmeans.result)) return(NULL)
+    
+       #browser()
+    
     # kmeans.result <- kmeans(df, clusterSize(),nstart = 20)
-    nn <- data[,!colnames(data) %in% c('ï..ID','SEX','EDUCATION','MARRIAGE','PAY_STS_SEPT','PAY_STS_AUG','PAY_STS_JULY','PAY_STS_JUNE','PAY_STS_MAY','PAY_STS_APRIL','ï..ID')]
-    cc <- data[,colnames(data) %in% c('SEX','EDUCATION','MARRIAGE','PAY_STS_SEPT','PAY_STS_AUG','PAY_STS_JULY','PAY_STS_JUNE','PAY_STS_MAY','PAY_STS_APRIL','ï..ID','AGE')]
+    nn <- currentData[,!colnames(currentData) %in% c('ID','SEX','EDUCATION','MARRIAGE','PAY_STS_SEPT','PAY_STS_AUG','PAY_STS_JULY','PAY_STS_JUNE','PAY_STS_MAY','PAY_STS_APRIL','ID')]
+    cc <- currentData[,colnames(currentData) %in% c('SEX','EDUCATION','MARRIAGE','PAY_STS_SEPT','PAY_STS_AUG','PAY_STS_JULY','PAY_STS_JUNE','PAY_STS_MAY','PAY_STS_APRIL','ID','AGE')]
     
     #Add in Cluster results 
     nn$Cluster <- kmeans.result$cluster
